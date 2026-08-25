@@ -1,0 +1,45 @@
+{
+  "name": "nyota-pos",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "seed:catalogue": "tsx scripts/seed-catalogue.ts",
+    "db:push": "supabase db push",
+    "db:reset": "supabase db reset",
+    "check:secrets": "bash scripts/check-secrets.sh",
+    "verify": "npm run typecheck && npm test && npm run check:shared && npm run build && npm run check:secrets",
+    "sync:shared": "node scripts/sync-shared.mjs",
+    "check:shared": "node scripts/sync-shared.mjs --check",
+    "db:link": "supabase link"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "supabase": "^2.115.0",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
+  },
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@supabase/ssr": "^0.12.4",
+    "@supabase/supabase-js": "^2.112.3",
+    "next": "^15.5.23",
+    "pdf-lib": "^1.17.1",
+    "zod": "^4.4.3"
+  }
+}

@@ -1,0 +1,927 @@
+/* ===========================================================================
+   till.css — component styles.
+
+   The palette, glass, motion and button system now live in brand.css, which
+   MUST be imported first. This file only styles components; it defines no
+   colours of its own.
+   =========================================================================== */
+
+
+* { box-sizing: border-box; }
+
+.till-root {
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  grid-template-rows: auto 1fr;
+  height: 100dvh;
+  background: var(--till-bg);
+  color: var(--till-ink);
+  font-family: var(--font-ui);
+  font-size: var(--step-base);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* --- Status bar: spans both columns, never dismissible ------------------- */
+
+.till-status {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 20px;
+  background: var(--till-surface);
+  border-bottom: 1px solid var(--till-line);
+  min-height: 52px;
+}
+
+.till-status__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: var(--step-sm);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.till-status__chip[data-state="online"]  { background: rgba(62,207,142,.14); color: var(--state-ok); }
+.till-status__chip[data-state="slow"]    { background: rgba(242,160,7,.16);  color: var(--state-warn); }
+.till-status__chip[data-state="down"]    { background: rgba(255,90,90,.18);  color: var(--state-stop); }
+.till-status__chip[data-state="doubt"]   { background: var(--state-stop);    color: #1A0808; }
+
+.till-status__dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.till-status__chip[data-state="slow"] .till-status__dot,
+.till-status__chip[data-state="down"] .till-status__dot { animation: till-pulse 1.4s ease-in-out infinite; }
+
+@keyframes till-pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+@media (prefers-reduced-motion: reduce) { .till-status__dot { animation: none !important } }
+
+.till-status__meta { margin-left: auto; display: flex; gap: 22px; color: var(--till-ink-dim); font-size: var(--step-sm); }
+.till-status__meta b { color: var(--till-ink); font-weight: 650; }
+
+/* --- Product grid -------------------------------------------------------- */
+
+.till-catalogue { overflow-y: auto; padding: 16px 16px 32px; }
+
+.till-cats { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+
+.till-cat {
+  min-height: 52px; padding: 0 20px;
+  background: var(--till-surface); color: var(--till-ink-dim);
+  border: 1px solid var(--till-line); border-radius: var(--radius);
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+.till-cat[aria-pressed="true"] { background: var(--till-surface-hi); color: var(--till-ink); border-color: var(--accent, var(--till-ink-dim)); }
+.till-cat:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+
+.till-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.till-tile {
+  position: relative;
+  min-height: var(--tap-min);
+  aspect-ratio: 1 / .78;
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 12px;
+  text-align: left;
+  background: var(--till-surface);
+  border: 1px solid var(--till-line);
+  border-left: 5px solid var(--accent, var(--till-ink-faint));
+  border-radius: var(--radius);
+  color: var(--till-ink);
+  font: inherit;
+  cursor: pointer;
+  transition: transform .06s ease, background .12s ease;
+}
+.till-tile:active { transform: scale(.965); background: var(--till-surface-hi); }
+.till-tile:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .till-tile { transition: none } }
+
+.till-tile__name { font-size: var(--step-md); font-weight: 650; line-height: 1.15; }
+.till-tile__price { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--step-md); font-weight: 700; }
+
+.till-tile__flag {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 3px 7px; border-radius: 5px;
+}
+.till-tile__flag[data-kind="event"] { background: rgba(242,160,7,.18); color: var(--hue-mango); }
+.till-tile__flag[data-kind="low"]   { background: rgba(255,90,90,.18); color: var(--state-stop); }
+
+/* An unclassified product is visibly inert, not hidden. The cashier should
+   see that it exists and why it can't be sold. */
+.till-tile[data-sellable="false"] {
+  opacity: .42; cursor: not-allowed; border-left-color: var(--state-stop);
+}
+.till-tile[data-sellable="false"]:active { transform: none; }
+
+/* --- Cart ---------------------------------------------------------------- */
+
+.till-cart {
+  display: flex; flex-direction: column;
+  background: var(--till-surface);
+  border-left: 1px solid var(--till-line);
+  min-height: 0;
+}
+
+.till-cart__head {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 14px 18px; border-bottom: 1px solid var(--till-line);
+}
+.till-cart__ref { font-family: var(--font-num); font-size: var(--step-sm); color: var(--till-ink-dim); }
+.till-cart__count { margin-left: auto; font-size: var(--step-sm); color: var(--till-ink-dim); }
+
+.till-lines { flex: 1; overflow-y: auto; padding: 6px 0; min-height: 0; }
+
+.till-empty {
+  height: 100%; display: grid; place-content: center; text-align: center;
+  color: var(--till-ink-faint); padding: 32px; gap: 6px;
+}
+.till-empty b { color: var(--till-ink-dim); font-size: var(--step-md); font-weight: 600; }
+
+.till-line {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 4px 12px; padding: 12px 18px;
+  border-bottom: 1px solid rgba(42,70,54,.5);
+}
+.till-line__name { font-weight: 600; }
+.till-line__amt {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-weight: 650; text-align: right;
+}
+.till-line__sub { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; color: var(--till-ink-dim); font-size: var(--step-sm); }
+
+.till-qty { display: inline-flex; align-items: center; gap: 2px; }
+.till-qty button {
+  width: 40px; height: 40px;
+  background: var(--till-surface-hi); color: var(--till-ink);
+  border: 1px solid var(--till-line); border-radius: 8px;
+  font: inherit; font-size: var(--step-md); font-weight: 700; cursor: pointer;
+}
+.till-qty button:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+.till-qty output {
+  min-width: 46px; text-align: center;
+  font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 700;
+}
+
+.till-badge {
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 7px; border-radius: 5px;
+  background: rgba(242,160,7,.16); color: var(--hue-mango);
+}
+.till-badge[data-kind="stock"] { background: rgba(255,90,90,.16); color: var(--state-stop); }
+
+/* --- Totals: the signature element --------------------------------------- */
+
+.till-totals { padding: 16px 18px; border-top: 1px solid var(--till-line); }
+
+.till-totals__row {
+  display: flex; justify-content: space-between;
+  font-size: var(--step-sm); color: var(--till-ink-dim); padding: 3px 0;
+}
+.till-totals__row span:last-child { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+.till-total {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--till-line);
+}
+.till-total__label { font-size: var(--step-sm); text-transform: uppercase; letter-spacing: .09em; color: var(--till-ink-dim); font-weight: 650; }
+.till-total__value {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--step-2xl); font-weight: 700; line-height: 1;
+  letter-spacing: -.02em;
+}
+.till-total__cur { font-size: var(--step-md); color: var(--till-ink-dim); margin-right: 8px; font-weight: 600; }
+
+/* --- Actions ------------------------------------------------------------- */
+
+.till-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 18px 18px; }
+
+.till-btn {
+  min-height: 68px; padding: 0 18px;
+  border-radius: var(--radius); border: 1px solid var(--till-line);
+  background: var(--till-surface-hi); color: var(--till-ink);
+  font: inherit; font-size: var(--step-md); font-weight: 650; cursor: pointer;
+}
+.till-btn:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+.till-btn:disabled { opacity: .35; cursor: not-allowed; }
+
+.till-btn--pay {
+  grid-column: 1 / -1; min-height: 84px;
+  background: var(--state-ok); color: #06241A;
+  border-color: transparent; font-size: var(--step-lg); font-weight: 750;
+}
+.till-btn--pay:disabled { background: var(--till-surface-hi); color: var(--till-ink-faint); }
+
+/* --- Blocking states ----------------------------------------------------- */
+
+.till-block {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center; padding: 24px;
+  background: rgba(6,12,9,.86); backdrop-filter: blur(3px);
+}
+.till-block__card {
+  max-width: 520px; width: 100%;
+  background: var(--till-surface); border: 2px solid var(--state-stop);
+  border-radius: var(--radius-lg); padding: 28px;
+}
+.till-block__title { font-size: var(--step-lg); font-weight: 700; margin: 0 0 6px; }
+.till-block__amount {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--step-xl); font-weight: 700; margin: 14px 0;
+}
+.till-block__body { color: var(--till-ink-dim); line-height: 1.5; margin: 0 0 18px; }
+.till-block__body strong { color: var(--till-ink); }
+.till-block ul { margin: 0 0 18px; padding-left: 20px; color: var(--till-ink-dim); line-height: 1.7; }
+
+@media (max-width: 900px) {
+  .till-root { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+  .till-cart { border-left: none; border-top: 1px solid var(--till-line); max-height: 52dvh; }
+}
+
+/* --- Tender panel -------------------------------------------------------- */
+
+.tender { color: var(--till-ink); }
+
+.tender__head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 20px; margin-bottom: 18px;
+}
+.tender__due { text-align: right; display: flex; flex-direction: column; gap: 4px; }
+
+.tender__taken {
+  list-style: none; margin: 0 0 18px; padding: 12px 14px;
+  background: var(--till-bg); border-radius: var(--radius);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.tender__taken li { display: flex; align-items: center; gap: 10px; font-size: var(--step-sm); }
+.tender__taken li span:first-child { color: var(--till-ink-dim); text-transform: capitalize; }
+.tender__taken code {
+  font-family: var(--font-num); font-size: 12px;
+  color: var(--till-ink-dim); background: var(--till-surface-hi);
+  padding: 2px 6px; border-radius: 4px;
+}
+.tender__taken b {
+  margin-left: auto; font-family: var(--font-num);
+  font-variant-numeric: tabular-nums; font-size: var(--step-md);
+}
+.tender__taken button {
+  width: 34px; height: 34px; border-radius: 6px;
+  background: transparent; color: var(--till-ink-dim);
+  border: 1px solid var(--till-line); font-size: 20px; cursor: pointer;
+}
+.tender__taken button:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+.tender__change { border-top: 1px dashed var(--till-line); padding-top: 8px; color: var(--state-warn); }
+.tender__change b { color: var(--state-warn); }
+
+.tender__modes { display: flex; gap: 8px; margin-bottom: 14px; }
+.tender__modes .till-cat { flex: 1; }
+
+.tender__body { min-height: 168px; }
+
+.tender__notes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 12px; }
+.tender__notes .till-btn { flex-direction: column; font-size: var(--step-base); padding: 8px; }
+.tender__notes small { color: var(--till-ink-dim); font-weight: 500; }
+
+.tender__row { display: flex; gap: 8px; }
+.tender__row .till-btn { min-width: 128px; }
+
+.tender__input {
+  flex: 1; min-height: 68px; padding: 0 16px;
+  background: var(--till-bg); color: var(--till-ink);
+  border: 1px solid var(--till-line); border-radius: var(--radius);
+  font-family: var(--font-num); font-size: var(--step-lg);
+  font-variant-numeric: tabular-nums; width: 100%;
+}
+.tender__input::placeholder { color: var(--till-ink-faint); font-family: var(--font-ui); font-size: var(--step-base); }
+.tender__input:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+
+.tender__hint { color: var(--till-ink-dim); font-size: var(--step-sm); line-height: 1.5; margin: 0 0 12px; }
+.tender__error { color: var(--state-stop); font-size: var(--step-sm); margin: 0 0 12px; }
+
+.tender__matches { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; }
+
+.tender__match {
+  width: 100%; display: grid;
+  grid-template-columns: auto 1fr; gap: 2px 14px;
+  padding: 12px 14px; text-align: left;
+  background: var(--till-surface-hi); color: var(--till-ink);
+  border: 1px solid var(--till-line); border-radius: var(--radius);
+  font: inherit; cursor: pointer;
+}
+/* The confident match is emphasised, but every candidate stays tappable —
+   the cashier, not the scorer, makes the final call. */
+.tender__match.is-best { border-color: var(--state-ok); background: rgba(62,207,142,.09); }
+.tender__match:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+
+.tender__match-amt {
+  grid-row: 1 / 3; align-self: center;
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--step-lg); font-weight: 700;
+}
+.tender__match-who { font-weight: 600; }
+.tender__match-why { color: var(--till-ink-dim); font-size: 12.5px; }
+.tender__match code { grid-column: 2; font-family: var(--font-num); font-size: 12px; color: var(--till-ink-faint); }
+
+@media (max-width: 560px) {
+  .tender__notes { grid-template-columns: repeat(3, 1fr); }
+  .tender__head { flex-direction: column; }
+  .tender__due { text-align: left; }
+}
+
+/* --- Receipt ------------------------------------------------------------- */
+
+.receipt__change {
+  margin: -6px 0 16px; color: var(--state-warn); font-size: var(--step-md);
+}
+.receipt__change strong { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+.receipt__paper {
+  max-height: 300px; overflow-y: auto; margin: 0 0 18px; padding: 16px;
+  background: #fff; color: #12211A; border-radius: var(--radius);
+  font-family: var(--font-num); font-size: 11.5px; line-height: 1.45;
+  white-space: pre; overflow-x: auto;
+}
+
+.receipt__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.receipt__actions .till-btn--pay { grid-column: 1 / -1; }
+
+.till-toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  z-index: 60; max-width: 520px; margin: 0;
+  padding: 14px 20px; border-radius: var(--radius);
+  background: var(--state-stop); color: #1A0808; font-weight: 600;
+}
+
+/* --- Shift boot ---------------------------------------------------------- */
+
+.boot {
+  min-height: 100dvh; display: grid; place-items: center; padding: 24px;
+  background: var(--till-bg); color: var(--till-ink); font-family: var(--font-ui);
+}
+.boot__card {
+  width: 100%; max-width: 440px; padding: 32px;
+  background: var(--till-surface); border: 1px solid var(--till-line);
+  border-radius: var(--radius-lg);
+}
+.boot__title {
+  margin: 0 0 24px; font-size: var(--step-lg); display: flex;
+  align-items: baseline; justify-content: space-between; gap: 12px;
+}
+.boot__title small {
+  font-family: var(--font-num); font-size: var(--step-sm);
+  color: var(--till-ink-dim); font-weight: 500;
+}
+.boot__label {
+  display: block; margin: 18px 0 8px; font-size: var(--step-sm);
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--till-ink-dim); font-weight: 650;
+}
+.boot__roster { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* --- Supervisor approval ------------------------------------------------- */
+
+.approval { max-width: 480px; border-color: var(--state-warn) !important; }
+
+.approval__what {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 18px; margin-bottom: 4px;
+  background: var(--till-bg); border-radius: var(--radius);
+  border-left: 4px solid var(--state-warn);
+}
+.approval__label { font-size: var(--step-sm); color: var(--till-ink-dim); }
+.approval__figure {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--step-lg); font-weight: 700;
+}
+.approval__figure s { color: var(--till-ink-faint); font-weight: 500; }
+.approval__note { font-size: var(--step-sm); color: var(--till-ink-dim); }
+
+/* --- Line actions -------------------------------------------------------- */
+
+button.till-line__name {
+  background: none; border: none; padding: 0; margin: 0;
+  color: var(--till-ink); font: inherit; font-weight: 600;
+  text-align: left; cursor: pointer; text-decoration: underline;
+  text-decoration-color: var(--till-line); text-underline-offset: 3px;
+}
+button.till-line__name:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+
+.line__qty { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+.line__qty .till-btn { width: 76px; font-size: var(--step-lg); }
+.line__qty output {
+  flex: 1; text-align: center;
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--step-xl); font-weight: 700;
+}
+
+.line__menu { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.line__menu .till-btn--pay { grid-column: 1 / -1; min-height: 68px; font-size: var(--step-md); }
+
+.line__quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+
+/* --- Z report ------------------------------------------------------------ */
+
+.z {
+  background: var(--till-bg); border-radius: var(--radius);
+  padding: 12px 16px; margin-bottom: 6px;
+}
+.z__head {
+  margin: 18px 0 8px; font-size: var(--step-sm);
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--till-ink-dim); font-weight: 650;
+}
+.z__row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 16px; padding: 5px 0; font-size: var(--step-sm);
+}
+.z__row span { color: var(--till-ink-dim); text-transform: capitalize; }
+.z__row span em {
+  display: block; font-style: normal; font-size: 12px;
+  color: var(--state-warn); text-transform: none; margin-top: 1px;
+}
+.z__row b {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--step-base); color: var(--till-ink);
+}
+.z__row[data-emphasis="true"] b { color: var(--state-warn); font-size: var(--step-md); }
+
+/* --- Admin screens ------------------------------------------------------- */
+
+.admin {
+  min-height: 100dvh; padding: 28px; max-width: 1100px; margin: 0 auto;
+  background: var(--till-bg); color: var(--till-ink); font-family: var(--font-ui);
+}
+.admin__head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 24px; margin-bottom: 22px; flex-wrap: wrap;
+}
+.admin__head h1 { margin: 0 0 4px; font-size: var(--step-lg); }
+.admin__head p { margin: 0; color: var(--till-ink-dim); font-size: var(--step-sm); max-width: 52ch; }
+
+.admin__copy {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 14px 16px; margin-bottom: 18px;
+  background: var(--till-surface); border-radius: var(--radius);
+}
+.admin__copy span { color: var(--till-ink-dim); font-size: var(--step-sm); }
+
+.admin__warn {
+  padding: 16px 18px; margin-bottom: 18px;
+  background: rgba(255,90,90,.1); border-left: 4px solid var(--state-stop);
+  border-radius: var(--radius);
+}
+.admin__warn strong { display: block; margin-bottom: 4px; }
+.admin__warn p { margin: 0 0 10px; color: var(--till-ink-dim); font-size: var(--step-sm); }
+.admin__warn ul { margin: 0; padding-left: 20px; color: var(--till-ink-dim); font-size: var(--step-sm); }
+
+.admin__ok {
+  padding: 12px 16px; margin-bottom: 16px; border-radius: var(--radius);
+  background: rgba(62,207,142,.12); color: var(--state-ok); font-size: var(--step-sm);
+}
+
+.admin__group { margin-bottom: 26px; }
+.admin__group h2 {
+  font-size: var(--step-sm); text-transform: uppercase; letter-spacing: .08em;
+  color: var(--till-ink-dim); margin: 0 0 8px;
+}
+.admin__table { width: 100%; border-collapse: collapse; }
+.admin__table th {
+  text-align: left; font-size: 12px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--till-ink-faint); font-weight: 600;
+  padding: 6px 10px; border-bottom: 1px solid var(--till-line);
+}
+.admin__table td { padding: 8px 10px; border-bottom: 1px solid rgba(42,70,54,.5); }
+.admin__table td small { display: block; color: var(--till-ink-faint); font-size: 12px; }
+.admin__table td.n { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.admin__table tr[data-sellable="false"] td { opacity: .5; }
+
+.admin__input {
+  width: 130px; min-height: 46px; padding: 0 12px;
+  background: var(--till-bg); color: var(--till-ink);
+  border: 1px solid var(--till-line); border-radius: 8px;
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--step-base); text-align: right;
+}
+.admin__input:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+.admin__clear { min-height: 40px; padding: 0 12px; font-size: 12.5px; }
+
+.backfill { display: grid; grid-template-columns: 360px 1fr; gap: 24px; align-items: start; }
+.backfill__total {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin: 18px 0; padding-top: 14px; border-top: 1px solid var(--till-line);
+}
+.backfill__grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px; margin-bottom: 18px;
+}
+.backfill__grid .till-tile { aspect-ratio: auto; min-height: 72px; }
+
+@media (max-width: 860px) { .backfill { grid-template-columns: 1fr; } }
+
+/* --- Reconciliation ------------------------------------------------------ */
+
+.recon__summary {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px; margin-bottom: 26px;
+}
+.recon__stat {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 18px; background: var(--till-surface);
+  border-radius: var(--radius); border-left: 4px solid var(--till-line);
+}
+.recon__stat[data-tone="ok"]   { border-left-color: var(--state-ok); }
+.recon__stat[data-tone="warn"] { border-left-color: var(--state-warn); }
+.recon__stat strong {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--step-lg); font-weight: 700;
+}
+.recon__stat small { color: var(--till-ink-dim); font-size: 12.5px; }
+
+.admin__group h2 { display: flex; align-items: center; gap: 10px; }
+.recon__count {
+  display: inline-grid; place-items: center; min-width: 26px; height: 22px;
+  padding: 0 7px; border-radius: 999px;
+  background: var(--state-warn); color: #1A1206;
+  font-size: 12px; font-weight: 700; letter-spacing: 0;
+}
+.recon__count[data-zero="true"] { background: var(--till-line); color: var(--till-ink-dim); }
+
+.recon { display: flex; flex-direction: column; gap: 8px; }
+.recon__row {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 14px 16px; background: var(--till-surface);
+  border-radius: var(--radius); border-left: 3px solid var(--till-line);
+}
+.recon__row[data-urgent="true"] { border-left-color: var(--state-stop); }
+.recon__row strong {
+  display: block; font-family: var(--font-num);
+  font-variant-numeric: tabular-nums; font-size: var(--step-md);
+}
+.recon__row small { display: block; color: var(--till-ink-dim); font-size: 12.5px; margin-top: 2px; }
+.recon__actions { display: flex; gap: 8px; flex-shrink: 0; }
+.recon__actions .till-cat { min-height: 44px; padding: 0 14px; font-size: var(--step-sm); }
+
+@media (max-width: 720px) {
+  .recon__row { flex-direction: column; align-items: stretch; }
+  .recon__actions { justify-content: flex-end; }
+}
+
+/* --- Admin navigation cards ---------------------------------------------- */
+
+.admin__nav {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+.admin__card {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 18px 20px; text-decoration: none;
+  background: var(--till-surface); color: var(--till-ink);
+  border: 1px solid var(--till-line); border-left: 4px solid var(--hue-mango);
+  border-radius: var(--radius);
+}
+.admin__card strong { font-size: var(--step-md); }
+.admin__card span { color: var(--till-ink-dim); font-size: var(--step-sm); line-height: 1.5; }
+.admin__card:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+.admin__card:active { background: var(--till-surface-hi); }
+
+/* --- Admin shell --------------------------------------------------------- */
+
+.shell { min-height: 100dvh; background: var(--till-bg); }
+
+.shell__nav {
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  padding: 12px 24px;
+  background: var(--till-surface); border-bottom: 1px solid var(--till-line);
+  font-family: var(--font-ui);
+}
+.shell__brand {
+  color: var(--till-ink); font-weight: 700; font-size: var(--step-md);
+  text-decoration: none; letter-spacing: -0.01em;
+}
+.shell__links { display: flex; gap: 4px; flex-wrap: wrap; }
+.shell__link {
+  padding: 9px 14px; border-radius: 8px;
+  color: var(--till-ink-dim); text-decoration: none;
+  font-size: var(--step-sm); font-weight: 600;
+}
+.shell__link[aria-current="page"] {
+  background: var(--till-surface-hi); color: var(--till-ink);
+}
+.shell__link:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+
+.shell__user {
+  margin-left: auto; display: flex; align-items: center; gap: 10px;
+  color: var(--till-ink-faint); font-size: 12.5px;
+}
+.shell__ghost {
+  padding: 8px 14px; border-radius: 8px;
+  background: transparent; color: var(--till-ink-dim);
+  border: 1px solid var(--till-line);
+  font: inherit; font-size: var(--step-sm); font-weight: 600;
+  cursor: pointer; text-decoration: none;
+}
+.shell__ghost:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+.shell__ghost:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 720px) {
+  .shell__user { margin-left: 0; width: 100%; }
+  .shell__user span { display: none; }
+}
+
+/* --- Load out ------------------------------------------------------------ */
+
+.loadout__bar {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+  margin-top: 20px; padding: 16px 20px;
+  background: var(--till-surface); border: 1px solid var(--till-line);
+  border-radius: var(--radius);
+}
+.loadout__bar > div { display: flex; align-items: baseline; gap: 10px; }
+
+/* --- Reports ------------------------------------------------------------- */
+
+.report__filters {
+  display: flex; gap: 12px; align-items: center;
+  flex-wrap: wrap; margin-bottom: 20px;
+}
+.report__tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.report__tabs .till-cat { min-height: 44px; padding: 0 16px; font-size: var(--step-sm); }
+.report__tabs .till-cat[aria-selected="true"] {
+  background: var(--till-surface-hi); color: var(--till-ink);
+  border-color: var(--hue-mango);
+}
+.report__table td small { display: block; color: var(--till-ink-faint); font-size: 12px; }
+
+/* --- Profit and loss ----------------------------------------------------- */
+
+.pnl {
+  background: var(--till-surface); border: 1px solid var(--till-line);
+  border-radius: var(--radius); padding: 20px 24px; margin-bottom: 16px;
+  max-width: 620px;
+}
+.pnl__line {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 20px; padding: 7px 0; font-size: var(--step-base);
+}
+.pnl__line span { color: var(--till-ink-dim); }
+.pnl__line span em {
+  display: block; font-style: normal; font-size: 12px;
+  color: var(--till-ink-faint); margin-top: 1px;
+}
+.pnl__line b {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  color: var(--till-ink); white-space: nowrap;
+}
+.pnl__line[data-muted="true"] { font-size: var(--step-sm); }
+.pnl__line[data-muted="true"] b { color: var(--till-ink-dim); }
+.pnl__line[data-strong="true"] span { color: var(--till-ink); font-weight: 650; }
+.pnl__line[data-rule="true"] {
+  border-top: 1px solid var(--till-line); margin-top: 6px; padding-top: 12px;
+}
+.pnl__line[data-big="true"] {
+  border-top-width: 2px; border-top-color: var(--till-ink);
+  margin-top: 10px; padding-top: 14px;
+}
+.pnl__line[data-big="true"] span { font-size: var(--step-md); }
+.pnl__line[data-big="true"] b { font-size: var(--step-lg); font-weight: 700; }
+
+/* --- Print (this is the "PDF export") ------------------------------------ */
+
+@media print {
+  .no-print, .shell__nav { display: none !important; }
+  .shell, .admin, body { background: #fff !important; color: #111 !important; }
+  .admin { padding: 0; max-width: none; }
+  .pnl, .recon__stat, .admin__table {
+    background: #fff !important; border-color: #ccc !important; color: #111 !important;
+  }
+  .pnl__line span, .pnl__line b, .admin__table td, .admin__table th,
+  .recon__stat strong, .admin__head h1 { color: #111 !important; }
+  .recon__stat small, .pnl__line span em { color: #555 !important; }
+  .admin__table { font-size: 11px; }
+  .admin__table th { border-bottom: 1px solid #999; }
+  .admin__table td { border-bottom: 1px solid #eee; }
+  tr, .pnl { break-inside: avoid; }
+  @page { margin: 14mm; }
+}
+
+/* ===========================================================================
+   Brand rework — glass, motion and the mango/leaf palette applied to the
+   existing components. Appended so the original rules stay readable and the
+   overrides are all in one place.
+   =========================================================================== */
+
+/* ── Status bar: floats above the sale, so it gets glass ─────────────────── */
+.till-status {
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-edge);
+  box-shadow: var(--lift-1);
+  position: sticky; top: 0; z-index: 20;
+}
+.till-status__chip {
+  border: 1px solid transparent;
+  transition: background var(--mid) var(--ease), color var(--mid) var(--ease);
+}
+.till-status__chip[data-state="online"] {
+  background: rgba(63,207,142,.13); color: var(--ok); border-color: rgba(63,207,142,.24);
+}
+.till-status__chip[data-state="slow"] {
+  background: rgba(246,129,36,.15); color: var(--brand-mango); border-color: rgba(246,129,36,.30);
+}
+.till-status__chip[data-state="down"],
+.till-status__chip[data-state="doubt"] {
+  background: rgba(255,92,92,.16); color: var(--stop); border-color: rgba(255,92,92,.34);
+}
+.till-status__chip[data-state="doubt"] { background: var(--stop); color: #1A0606; }
+
+/* ── Product tiles ───────────────────────────────────────────────────────── */
+.till-tile {
+  background: linear-gradient(160deg,
+    rgba(255,255,255,.045), rgba(255,255,255,.012));
+  border: 1px solid var(--glass-edge);
+  border-left: 4px solid var(--accent, var(--ink-faint));
+  border-radius: var(--r);
+  box-shadow: var(--lift-1);
+  transition: transform var(--fast) var(--ease),
+              box-shadow var(--fast) var(--ease),
+              border-color var(--fast) var(--ease);
+}
+.till-tile:hover { border-color: var(--line-soft); box-shadow: var(--lift-2); }
+.till-tile:active { transform: scale(.96); box-shadow: var(--lift-1); }
+.till-tile:focus-visible { outline: 3px solid var(--brand-mango); outline-offset: 2px; }
+.till-tile__price { color: var(--brand-mango); }
+.till-tile[data-sellable="false"] { border-left-color: var(--stop); }
+
+.till-tile__flag[data-kind="event"] {
+  background: rgba(246,129,36,.20); color: var(--brand-mango);
+}
+
+/* ── Category filter pills ───────────────────────────────────────────────── */
+.till-cat {
+  min-height: var(--tap); border-radius: var(--r-pill);
+  background: rgba(255,255,255,.04); border: 1px solid var(--glass-edge);
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease),
+              border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+.till-cat:active { transform: scale(.97); }
+.till-cat[aria-pressed="true"], .till-cat[aria-selected="true"] {
+  background: linear-gradient(145deg, var(--brand-mango-hi), var(--brand-mango));
+  color: var(--ink-on-mango); border-color: transparent; font-weight: 700;
+  box-shadow: var(--glow);
+}
+.till-cat:focus-visible { outline: 3px solid var(--brand-mango); outline-offset: 2px; }
+
+/* ── Cart ────────────────────────────────────────────────────────────────── */
+.till-cart {
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-left: 1px solid var(--glass-edge);
+}
+.till-line { animation: rise var(--fast) var(--ease-out) both; }
+.till-line__amt { color: var(--ink); }
+.till-badge { background: rgba(246,129,36,.16); color: var(--brand-mango); }
+
+/* ── Totals: the number the customer is watching ─────────────────────────── */
+.till-total__value {
+  color: var(--brand-mango);
+  text-shadow: 0 0 34px rgba(246,129,36,.28);
+}
+.till-total__cur { color: var(--ink-faint); }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.till-btn {
+  min-height: var(--tap); border-radius: var(--r-sm);
+  background: rgba(255,255,255,.05); border: 1px solid var(--glass-edge);
+  transition: transform var(--fast) var(--ease),
+              background var(--fast) var(--ease);
+}
+.till-btn:active { transform: scale(.97); }
+.till-btn:hover { background: rgba(255,255,255,.08); }
+.till-btn:focus-visible { outline: 3px solid var(--brand-mango); outline-offset: 2px; }
+
+.till-btn--pay {
+  min-height: var(--tap-lg);
+  background: linear-gradient(145deg, var(--brand-mango-hi), var(--brand-mango));
+  color: var(--ink-on-mango); border-color: transparent;
+  box-shadow: var(--glow); font-weight: 750;
+}
+.till-btn--pay:hover {
+  background: linear-gradient(145deg, #ffa860, var(--brand-mango-hi));
+}
+.till-btn--pay:disabled {
+  background: rgba(255,255,255,.05); color: var(--ink-faint);
+  box-shadow: none; border-color: var(--glass-edge);
+}
+
+/* ── Modals ──────────────────────────────────────────────────────────────── */
+.till-block {
+  background: rgba(2,13,7,.72);
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  animation: fade var(--fast) var(--ease) both;
+}
+.till-block__card {
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-lg);
+  box-shadow: var(--lift-3), inset 0 1px 0 rgba(255,255,255,.08);
+  animation: rise var(--mid) var(--ease-out) both;
+}
+/* A blocking alert keeps a hard red edge — it must not look like a dialog
+   the cashier can dismiss by reflex. */
+[role="alertdialog"] .till-block__card { border-color: var(--stop); }
+
+/* ── Admin shell ─────────────────────────────────────────────────────────── */
+.shell__nav {
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--glass-edge);
+  position: sticky; top: 0; z-index: 20;
+}
+.shell__link { border-radius: var(--r-pill); transition: all var(--fast) var(--ease); }
+.shell__link:hover { background: rgba(255,255,255,.05); color: var(--ink); }
+.shell__link[aria-current="page"] {
+  background: linear-gradient(145deg, var(--brand-mango-hi), var(--brand-mango));
+  color: var(--ink-on-mango); font-weight: 700;
+}
+.shell__ghost { border-radius: var(--r-pill); border-color: var(--glass-edge); }
+.shell__ghost:hover { background: rgba(255,255,255,.06); color: var(--ink); }
+
+/* ── Admin surfaces ──────────────────────────────────────────────────────── */
+.admin__card, .recon__stat, .recon__row, .pnl, .z, .admin__copy {
+  background: linear-gradient(160deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r);
+  box-shadow: var(--lift-1);
+}
+.admin__card {
+  border-left: 4px solid var(--brand-mango);
+  transition: transform var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+}
+.admin__card:hover { transform: translateY(-2px); box-shadow: var(--lift-2); }
+.recon__stat[data-tone="ok"]   { border-left: 4px solid var(--ok); }
+.recon__stat[data-tone="warn"] { border-left: 4px solid var(--brand-mango); }
+.recon__stat strong { color: var(--ink); }
+
+.admin__group { animation: rise var(--mid) var(--ease-out) both; }
+.admin__table thead th { color: var(--ink-faint); }
+.admin__table tbody tr { transition: background var(--fast) var(--ease); }
+.admin__table tbody tr:hover { background: rgba(255,255,255,.035); }
+
+.admin__input, .tender__input {
+  background: rgba(2,13,7,.55); border: 1px solid var(--glass-edge);
+  border-radius: var(--r-sm); transition: border-color var(--fast) var(--ease);
+}
+.admin__input:focus, .tender__input:focus {
+  border-color: var(--brand-mango); outline: none;
+  box-shadow: 0 0 0 3px rgba(246,129,36,.18);
+}
+
+.admin__ok {
+  background: rgba(63,207,142,.12); color: var(--ok);
+  border-left: 3px solid var(--ok); border-radius: var(--r-sm);
+  animation: rise var(--mid) var(--ease-out) both;
+}
+.admin__warn { border-radius: var(--r); }
+
+/* ── P&L ─────────────────────────────────────────────────────────────────── */
+.pnl { padding: 24px 28px; }
+.pnl__line[data-big="true"] b { color: var(--brand-mango); }
+
+/* ── Boot / login ────────────────────────────────────────────────────────── */
+.boot__card {
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--r-lg);
+  box-shadow: var(--lift-3);
+  animation: rise var(--mid) var(--ease-out) both;
+}
+.boot__brand { display: grid; place-items: center; margin-bottom: 24px; gap: 10px; }
+
+/* ── Print: brand colours off, ink on ────────────────────────────────────── */
+@media print {
+  body { background: #fff !important; }
+  .glass, .glass--strong, .shell__nav, .till-block__card,
+  .admin__card, .recon__stat, .pnl, .z {
+    background: #fff !important; backdrop-filter: none !important;
+    box-shadow: none !important; border-color: #ccc !important;
+  }
+  .till-total__value, .pnl__line[data-big="true"] b {
+    color: #05572f !important; text-shadow: none !important;
+  }
+}

@@ -1,0 +1,273 @@
+/* ===========================================================================
+   brand.css — Tundah Taamu Delights
+   Main #f68124 (mango)  ·  Secondary #05572f (deep leaf)
+
+   This replaces the old token block. Two things drive every choice:
+
+   1. THE STALL. Outdoor, direct Nairobi sun, sticky hands, a queue. Contrast
+      and tap-target size are functional requirements, not preferences.
+      Every interactive element is ≥ 56px, primary actions ≥ 72px.
+
+   2. THE BRAND. #05572f is the ground — a deep leaf green that lets the
+      mango orange carry every action without competing with it. The orange
+      is reserved: it means "this is the thing to press". Using it decoratively
+      would spend the one signal the cashier scans for.
+
+   GLASS is used with restraint. Surfaces that FLOAT above the sale — modals,
+   the tender panel, the status bar — get it. Surfaces the cashier reads
+   numbers off do not, because blur behind text costs legibility, and in
+   sunlight that is a real cost.
+
+   MOTION is short (120–220ms) and never blocks input. Every animation is
+   wrapped in prefers-reduced-motion.
+   =========================================================================== */
+
+:root {
+  /* ── Brand ─────────────────────────────────────────────────────────────── */
+  --brand-mango:      #f68124;
+  --brand-mango-lo:   #d96a15;
+  --brand-mango-hi:   #ff9c4d;
+  --brand-leaf:       #05572f;
+  --brand-leaf-lo:    #033a1f;
+  --brand-leaf-hi:    #0a7642;
+
+  /* ── Ground ────────────────────────────────────────────────────────────── */
+  /* Not pure black: a very dark leaf, so the mango reads as warm against it. */
+  --bg:          #04150c;
+  --bg-deep:     #020d07;
+  --surface:     #072a18;
+  --surface-hi:  #0b3a21;
+  --line:        #145232;
+  --line-soft:   rgba(246, 129, 36, 0.14);
+
+  /* ── Glass ─────────────────────────────────────────────────────────────── */
+  --glass:        rgba(11, 58, 33, 0.55);
+  --glass-strong: rgba(7, 42, 24, 0.78);
+  --glass-edge:   rgba(255, 255, 255, 0.08);
+  --glass-blur:   saturate(160%) blur(18px);
+
+  /* ── Ink ───────────────────────────────────────────────────────────────── */
+  --ink:        #F4F8F2;
+  --ink-dim:    #9DBCA8;
+  --ink-faint:  #5F8570;
+  --ink-on-mango: #2A1200;
+
+  /* ── Category hues (functional: a cashier finds "the orange one" fast) ── */
+  --hue-smoothie:  #f68124;
+  --hue-juice:     #E8B33C;
+  --hue-fruit:     #4FA65B;
+  --hue-cut:       #E8547B;
+  --hue-other:     #7FB7C9;
+
+  /* ── State ─────────────────────────────────────────────────────────────── */
+  --ok:    #3FCF8E;
+  --warn:  #f68124;
+  --stop:  #FF5C5C;
+
+  /* ── Geometry ──────────────────────────────────────────────────────────── */
+  --tap:        56px;
+  --tap-lg:     72px;
+  --r-sm:       10px;
+  --r:          14px;
+  --r-lg:       20px;
+  --r-pill:     999px;
+
+  /* ── Elevation ─────────────────────────────────────────────────────────── */
+  --lift-1: 0 1px 2px rgba(0,0,0,.30);
+  --lift-2: 0 6px 20px rgba(0,0,0,.36);
+  --lift-3: 0 20px 60px rgba(0,0,0,.50);
+  --glow:   0 0 0 1px rgba(246,129,36,.32), 0 8px 30px rgba(246,129,36,.20);
+
+  /* ── Type ──────────────────────────────────────────────────────────────── */
+  --font-ui:  ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-num: ui-monospace, "SF Mono", "Roboto Mono", "DejaVu Sans Mono", monospace;
+
+  --t-xs:   12px;
+  --t-sm:   13.5px;
+  --t-base: 16px;
+  --t-md:   20px;
+  --t-lg:   28px;
+  --t-xl:   40px;
+  --t-2xl:  60px;
+
+  /* ── Motion ────────────────────────────────────────────────────────────── */
+  --ease:      cubic-bezier(.2, .8, .2, 1);
+  --ease-out:  cubic-bezier(.16, 1, .3, 1);
+  --fast:      120ms;
+  --mid:       200ms;
+
+  /* Aliases so the existing stylesheet keeps working during the transition. */
+  --till-bg:         var(--bg);
+  --till-surface:    var(--surface);
+  --till-surface-hi: var(--surface-hi);
+  --till-line:       var(--line);
+  --till-ink:        var(--ink);
+  --till-ink-dim:    var(--ink-dim);
+  --till-ink-faint:  var(--ink-faint);
+  --state-ok:        var(--ok);
+  --state-warn:      var(--warn);
+  --state-stop:      var(--stop);
+  --hue-mango:       var(--brand-mango);
+  --hue-passion:     var(--hue-juice);
+  --hue-avocado:     var(--hue-fruit);
+  --hue-watermelon:  var(--hue-cut);
+  --hue-cane:        var(--hue-juice);
+  --hue-coconut:     var(--hue-other);
+  --radius:          var(--r);
+  --radius-lg:       var(--r-lg);
+  --tap-min:         var(--tap);
+  --step-sm:         var(--t-sm);
+  --step-base:       var(--t-base);
+  --step-md:         var(--t-md);
+  --step-lg:         var(--t-lg);
+  --step-xl:         var(--t-xl);
+  --step-2xl:        var(--t-2xl);
+}
+
+/* ═══ Ambient ground ═══════════════════════════════════════════════════════
+   Two very soft radial washes — mango top-left, leaf bottom-right. Fixed, so
+   they do not repaint on scroll. This is what stops a dark UI reading as flat
+   black, at no legibility cost because it sits far behind content. */
+body {
+  background:
+    radial-gradient(1100px 700px at 8% -10%,  rgba(246,129,36,.10), transparent 60%),
+    radial-gradient(900px 600px at 100% 110%, rgba(10,118,66,.16),  transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-ui);
+}
+
+/* ═══ Glass utility ═══════════════════════════════════════════════════════ */
+.glass {
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--lift-2), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.glass--strong {
+  background: var(--glass-strong);
+  box-shadow: var(--lift-3), inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+/* Fallback: without backdrop-filter, glass becomes an opaque surface rather
+   than an unreadable transparent one. */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass, .glass--strong { background: var(--surface-hi); }
+}
+
+/* ═══ Brand marks ═════════════════════════════════════════════════════════ */
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+.brand__mark {
+  width: 34px; height: 34px; border-radius: 9px; object-fit: contain;
+  background: var(--surface-hi); padding: 3px;
+}
+.brand__name {
+  font-weight: 750; font-size: var(--t-base); letter-spacing: -.01em;
+  color: var(--ink); line-height: 1.1;
+}
+.brand__name b { color: var(--brand-mango); font-weight: 750; }
+.brand__sub {
+  display: block; font-size: 11px; font-weight: 500;
+  color: var(--ink-faint); letter-spacing: .10em; text-transform: uppercase;
+}
+
+/* Wordmark fallback while the PNG/WebP are not in /public yet. */
+.brand__fallback {
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: linear-gradient(145deg, var(--brand-mango), var(--brand-mango-lo));
+  color: var(--ink-on-mango); font-weight: 800; font-size: 15px;
+  box-shadow: var(--lift-1);
+}
+
+/* ═══ Buttons ═════════════════════════════════════════════════════════════ */
+.btn {
+  min-height: var(--tap); padding: 0 20px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: var(--r-sm); border: 1px solid var(--line);
+  background: var(--surface-hi); color: var(--ink);
+  font: inherit; font-size: var(--t-base); font-weight: 650;
+  cursor: pointer;
+  transition: transform var(--fast) var(--ease),
+              background var(--fast) var(--ease),
+              border-color var(--fast) var(--ease);
+}
+.btn:hover { border-color: var(--line-soft); }
+.btn:active { transform: scale(.97); }
+.btn:focus-visible { outline: 3px solid var(--brand-mango); outline-offset: 2px; }
+.btn:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+
+/* The single loudest element on screen. Reserved for the money action. */
+.btn--primary {
+  min-height: var(--tap-lg);
+  background: linear-gradient(145deg, var(--brand-mango-hi), var(--brand-mango));
+  color: var(--ink-on-mango);
+  border-color: transparent;
+  font-size: var(--t-md); font-weight: 750;
+  box-shadow: var(--glow);
+}
+.btn--primary:disabled {
+  background: var(--surface-hi); color: var(--ink-faint);
+  box-shadow: none; opacity: .5;
+}
+
+.btn--ghost { background: transparent; color: var(--ink-dim); }
+
+/* ═══ Motion ══════════════════════════════════════════════════════════════ */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes pulse-soft { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+@keyframes sheen {
+  from { background-position: -180% 0 }
+  to   { background-position: 280% 0 }
+}
+
+.animate-rise { animation: rise var(--mid) var(--ease-out) both; }
+.animate-fade { animation: fade var(--fast) var(--ease) both; }
+
+/* Stagger for grids. Capped at 12 so a long catalogue does not crawl in. */
+.stagger > * { animation: rise var(--mid) var(--ease-out) both; }
+.stagger > *:nth-child(1) { animation-delay: 10ms }
+.stagger > *:nth-child(2) { animation-delay: 20ms }
+.stagger > *:nth-child(3) { animation-delay: 30ms }
+.stagger > *:nth-child(4) { animation-delay: 40ms }
+.stagger > *:nth-child(5) { animation-delay: 50ms }
+.stagger > *:nth-child(6) { animation-delay: 60ms }
+.stagger > *:nth-child(7) { animation-delay: 70ms }
+.stagger > *:nth-child(8) { animation-delay: 80ms }
+.stagger > *:nth-child(9) { animation-delay: 90ms }
+.stagger > *:nth-child(n+10) { animation-delay: 100ms }
+
+/* Skeleton shimmer for loading states. */
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--surface) 25%, var(--surface-hi) 37%, var(--surface) 63%);
+  background-size: 280% 100%;
+  animation: sheen 1.4s linear infinite;
+  border-radius: var(--r-sm);
+}
+
+/* One switch disables all of it. Vestibular safety, and it also makes the
+   till feel instant on an underpowered laptop. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══ Scrollbars ══════════════════════════════════════════════════════════ */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: var(--line); border-radius: var(--r-pill);
+  border: 2px solid transparent; background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--brand-leaf-hi); background-clip: content-box; }

@@ -1,0 +1,14 @@
+sku,name,short_name,category,uom,cost_price,selling_price,etims_tax_ty_cd,etims_item_cls_cd,pkg_unit_cd,qty_unit_cd,track_stock,barcode,tile_order
+SMO-MAN-L,Mango Smoothie (Large),Mango L,Smoothies,EA,80.00,250.00,B,,NT,U,TRUE,,10
+SMO-MAN-S,Mango Smoothie (Small),Mango S,Smoothies,EA,55.00,180.00,B,,NT,U,TRUE,,11
+SMO-TRO-L,Tropical Smoothie (Large),Tropical L,Smoothies,EA,90.00,280.00,B,,NT,U,TRUE,,12
+SMO-AVO-L,Avocado Smoothie (Large),Avocado L,Smoothies,EA,95.00,300.00,B,,NT,U,TRUE,,13
+JUI-ORA-500,Fresh Orange Juice 500ml,Orange 500,Juices,EA,60.00,200.00,,,NT,U,TRUE,,20
+JUI-PAS-500,Passion Juice 500ml,Passion 500,Juices,EA,65.00,200.00,,,NT,U,TRUE,,21
+JUI-SUG-500,Sugarcane Juice 500ml,Cane 500,Juices,EA,40.00,150.00,,,NT,U,TRUE,,22
+FRU-MAN-EA,Whole Mango,Mango,Fresh Fruit,EA,25.00,50.00,,,NT,U,TRUE,,30
+FRU-PIN-EA,Whole Pineapple,Pineapple,Fresh Fruit,EA,80.00,150.00,,,NT,U,TRUE,,31
+FRU-WAT-KG,Watermelon (per kg),Watermelon,Fresh Fruit,KG,35.00,80.00,,,NT,KG,TRUE,,32
+FRU-CUP-M,Cut Fruit Cup (Medium),Fruit Cup M,Cut Fruit,EA,45.00,120.00,,,NT,U,TRUE,,40
+FRU-SAL-L,Fruit Salad (Large),Fruit Salad,Cut Fruit,EA,70.00,200.00,,,NT,U,TRUE,,41
+WAT-500,Bottled Water 500ml,Water,Other,EA,25.00,50.00,B,,NT,U,TRUE,6161100234567,50
