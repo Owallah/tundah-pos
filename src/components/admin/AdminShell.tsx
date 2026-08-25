@@ -57,7 +57,7 @@ export function AdminShell({
   return (
     <div className="shell">
       <nav className="shell__nav" aria-label="Admin sections">
-        <Link href="/admin" className="shell__brand">Nyota</Link>
+        <Link href="/admin" className="shell__brand">Tundah Taamu Delights Ltd</Link>
 
         <div className="shell__links">
           {LINKS.map((l) => {
