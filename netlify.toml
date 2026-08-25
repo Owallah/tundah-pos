@@ -1,0 +1,32 @@
+# Netlify configuration — Tundah Taamu Delights POS
+#
+# The Next.js plugin is what makes App Router server components, route
+# handlers and middleware work on Netlify. Without it you get static output
+# and every dynamic page fails at request time.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "20"
+  # Netlify runs `npm ci`; leave dev deps installed so the build has tsc.
+  NPM_FLAGS = "--include=dev"
+
+# Receipts are personal documents. Never cache them at the edge, and keep
+# them out of search results.
+[[headers]]
+  for = "/r/*"
+  [headers.values]
+    Cache-Control = "private, no-store"
+    X-Robots-Tag = "noindex, nofollow"
+    Referrer-Policy = "no-referrer"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"

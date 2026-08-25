@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { serverClient, readClaims } from '@/lib/supabase/clients';
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -8,6 +9,11 @@ import { AdminShell } from '@/components/admin/AdminShell';
  * RPC. A cashier reaching this URL directly is still refused by the database.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    redirect('/setup');
+  }
+
   const store = await cookies();
   const supabase = serverClient({
     getAll: () => store.getAll(),

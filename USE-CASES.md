@@ -56,7 +56,21 @@ PIN `456456` → **Save**.
 
 ✅ Appears in the list. ✅ The PIN is never displayed anywhere afterwards.
 
-### UC-1.7 Load out stock
+### UC-1.7 Receive stock into the base store
+`/admin/receive` → **Add supplier** if none exists → enter quantities and unit
+costs → **Confirm receipt**.
+
+✅ "In base" increases by what you entered.
+✅ If you entered a new cost, the product's cost price updates — future sales
+compute margin against what you actually paid.
+✅ Anything at or below its reorder point is listed at the top.
+
+**This is the first step in the whole chain.** Nothing can be loaded out or
+sold until stock has been received:
+
+    supplier → BASE STORE → load out → EVENT STALL → sale
+
+### UC-1.8 Load out stock
 `/admin/loadout` → enter quantities against several products → **Confirm load
 out**.
 
@@ -64,13 +78,13 @@ out**.
 ✅ "Base" decreases and "At stall" increases — **both**. If only one moves,
 that is the double-entry bug and must be reported.
 
-### UC-1.8 Load out more than you have *(warning test)*
+### UC-1.9 Load out more than you have *(warning test)*
 Enter a quantity larger than the base figure.
 
 ✅ An amber warning appears but the button still works. This is deliberate:
 the crate in your hands beats the ledger.
 
-### UC-1.9 Record an event cost
+### UC-1.10 Record an event cost
 `/admin/pnl` → **Add expense** → Stall, `1500` → **Add expense**.
 
 ✅ Appears in the P&L under expenses and reduces profit.
@@ -386,7 +400,7 @@ Five wrong PINs.
 
 | Section | Cases | Tester | Date | Pass |
 |---|---|---|---|---|
-| 1 Setup | 9 | | | |
+| 1 Setup | 10 | | | |
 | 2 Sale | 18 | | | |
 | 3 Failures | 6 | | | |
 | 4 Closing | 5 | | | |
@@ -394,7 +408,7 @@ Five wrong PINs.
 | 6 Multi-till | 4 | | | |
 | 7 Security | 4 | | | |
 
-**53 cases.** If pushed for time, the ones that must not be skipped are
+**54 cases.** If pushed for time, the ones that must not be skipped are
 **UC-2.11** (payment ambiguity), **UC-3.2** (sale in doubt), **UC-4.3** (blind
 cash count) and **UC-6.2** (concurrent stock). Those are where money goes
 missing.

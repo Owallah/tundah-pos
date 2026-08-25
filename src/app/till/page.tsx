@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { serverClient, readClaims, MISSING_CLAIMS_MESSAGE } from '@/lib/supabase/clients';
 import Link from 'next/link';
@@ -13,6 +14,11 @@ export const dynamic = 'force-dynamic';
  *   - signed in, but the JWT claims hook is not enabled
  */
 export default async function TillPage() {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    redirect('/setup');
+  }
+
   const store = await cookies();
   const supabase = serverClient({
     getAll: () => store.getAll(),

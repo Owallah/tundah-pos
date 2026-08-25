@@ -17,7 +17,8 @@
     "verify": "npm run typecheck && npm test && npm run check:shared && npm run build && npm run check:secrets",
     "sync:shared": "node scripts/sync-shared.mjs",
     "check:shared": "node scripts/sync-shared.mjs --check",
-    "db:link": "supabase link"
+    "db:link": "supabase link",
+    "test:layout": "node tests/modal-layout.mjs"
   },
   "keywords": [],
   "author": "",

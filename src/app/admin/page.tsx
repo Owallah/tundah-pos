@@ -109,6 +109,10 @@ export default async function AdminHome() {
             title="Staff"
             body="Cashiers, PINs, discount limits and who may void or change a price. Also unlocks anyone locked out by failed PINs." />
           <Card
+            href="/admin/receive"
+            title="Receive stock"
+            body="Goods arriving from a supplier into the base store. This is the first step — nothing can be loaded out or sold until stock has been received." />
+          <Card
             href="/admin/loadout"
             title="Load out"
             body="Move stock from the base store to the stall, and back again afterwards. Recorded as double-entry so base stock stays real." />

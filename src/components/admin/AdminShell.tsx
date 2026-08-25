@@ -17,6 +17,7 @@ import { browserClient } from '@/lib/supabase/clients';
 // during and after it.
 const SETUP = [
   { href: '/admin/events', label: 'Events' },
+  { href: '/admin/receive', label: 'Receive stock' },
   { href: '/admin/products', label: 'Products' },
   { href: '/admin/pricing', label: 'Pricing' },
   { href: '/admin/staff', label: 'Staff' },
@@ -56,7 +57,7 @@ export function AdminShell({
   return (
     <div className="shell">
       <nav className="shell__nav" aria-label="Admin sections">
-        <Link href="/admin" className="shell__brand">Tundah Taamu Delights</Link>
+        <Link href="/admin" className="shell__brand">Nyota</Link>
 
         <div className="shell__links">
           {LINKS.map((l) => {
