@@ -1065,3 +1065,31 @@ button.till-line__name:focus-visible { outline: 3px solid var(--till-ink); outli
 @media (prefers-reduced-motion: reduce) {
   .till-block, .till-block__card { animation: none !important; }
 }
+
+/* --- NCBA STK ------------------------------------------------------------ */
+
+.stk { min-height: 200px; }
+
+.stk__waiting {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 20px 0; text-align: center;
+}
+.stk__waiting strong { font-size: var(--t-md); }
+
+.stk__pulse {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: radial-gradient(circle, var(--brand-mango) 30%, transparent 70%);
+  animation: pulse-soft 1.5s ease-in-out infinite;
+}
+.stk__tick {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(63,207,142,.16); color: var(--ok);
+  font-size: 30px; font-weight: 700;
+  animation: rise var(--mid) var(--ease-out) both;
+}
+.stk__countdown {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--t-xl); font-weight: 700; color: var(--brand-mango);
+  line-height: 1;
+}

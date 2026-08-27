@@ -12,6 +12,7 @@
 
 import { admin } from '../_shared/util.ts';
 import { DarajaClient, type DarajaConfig } from '../_shared/daraja.ts';
+import { NcbaClient, type NcbaConfig } from '../_shared/ncba-client.ts';
 
 function config(): DarajaConfig {
   const env = (k: string) => Deno.env.get(k) ?? '';
@@ -30,8 +31,59 @@ function config(): DarajaConfig {
   };
 }
 
+/**
+ * NCBA sweep.
+ *
+ * The till polls while the cashier watches, but a tab closed mid-prompt
+ * leaves the row PENDING forever. This catches those. It is a backstop, not
+ * the primary path — the till's own polling is what the cashier sees.
+ */
+async function sweepNcba(db: ReturnType<typeof admin>) {
+  const env = (k: string) => Deno.env.get(k) ?? '';
+  if (!env('NCBA_USERNAME')) return { checked: 0, resolved: 0 };
+
+  const cfg: NcbaConfig = {
+    baseUrl: env('NCBA_API_BASE_URL') || undefined,
+    username: env('NCBA_USERNAME'),
+    password: env('NCBA_PASSWORD'),
+    payBillNo: env('NCBA_PAYBILL_NO') || '880100',
+    tillCode: env('NCBA_TILL_CODE'),
+  };
+
+  const client = new NcbaClient(cfg);
+  const { data, error } = await db.rpc('ncba_awaiting_result', {
+    p_max_age_seconds: 300,
+  });
+  if (error) {
+    console.error('ncba sweep list failed', error);
+    return { checked: 0, resolved: 0 };
+  }
+
+  const rows = (data ?? []) as Array<{ provider_txn_id: string }>;
+  let resolved = 0;
+
+  for (const row of rows) {
+    try {
+      const res = await client.stkQuery(row.provider_txn_id);
+      await db.rpc('record_ncba_result', {
+        p_provider_txn_id: row.provider_txn_id,
+        p_status: (res.status ?? '').toUpperCase(),
+        p_description: res.description ?? 'resolved by reconciler',
+        p_raw: res as unknown as Record<string, unknown>,
+      });
+      resolved++;
+    } catch (err) {
+      // A query failure is not a payment failure. Leave it PENDING.
+      console.error('ncba sweep query failed', row.provider_txn_id, String(err));
+    }
+  }
+
+  return { checked: rows.length, resolved };
+}
+
 Deno.serve(async () => {
   const db = admin();
+  const ncba = await sweepNcba(db);
   const daraja = new DarajaClient(config());
 
   const { data: pending, error } = await db.rpc('stk_awaiting_callback', {
@@ -74,7 +126,7 @@ Deno.serve(async () => {
   }
 
   return new Response(
-    JSON.stringify({ checked: rows.length, resolved }),
+    JSON.stringify({ daraja: { checked: rows.length, resolved }, ncba }),
     { status: 200, headers: { 'Content-Type': 'application/json' } },
   );
 });

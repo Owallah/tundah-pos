@@ -20,9 +20,13 @@ import {
   CartError, type Cart, type Tender, type TenderMethod,
 } from '../../lib/pos/cart';
 import { matchC2BPayment, maskPhone, type CandidatePayment } from '../../lib/mpesa/matcher';
+import { NcbaStkPanel } from './NcbaStkPanel';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatKes, parseKes, cents, type Cents } from '../../lib/money/money';
 
 export interface TenderPanelProps {
+  /** Needed for the NCBA STK flow, which calls an Edge Function. */
+  supabase: SupabaseClient;
   cart: Cart;
   onCartChange: (next: Cart) => void;
   /** Unmatched C2B payments, polled or pushed via Realtime. */
@@ -41,11 +45,14 @@ const NOTES: Cents[] = [
 
 export function TenderPanel(props: TenderPanelProps) {
   const {
-    cart, onCartChange, candidates, tenderOpenedAt,
+    supabase, cart, onCartChange, candidates, tenderOpenedAt,
     onComplete, onCancel, newPaymentId, submitting = false,
   } = props;
 
-  const [mode, setMode] = useState<'CASH' | 'MPESA' | 'MANUAL'>('MPESA');
+  // NCBA STK is the default: the cashier drives it and the AccountNo carries
+  // the sale reference, so there is nothing to match afterwards. The old C2B
+  // "wait and match" flow is kept as MPESA for a customer who pays unprompted.
+  const [mode, setMode] = useState<'STK' | 'CASH' | 'MPESA' | 'MANUAL'>('STK');
   const [cashInput, setCashInput] = useState('');
   const [manualCode, setManualCode] = useState('');
   const [phoneHint, setPhoneHint] = useState('');
@@ -142,7 +149,7 @@ export function TenderPanel(props: TenderPanelProps) {
         {due > 0 && (
           <>
             <div className="tender__modes" role="tablist">
-              {(['MPESA', 'CASH', 'MANUAL'] as const).map((m) => (
+              {(['STK', 'CASH', 'MPESA', 'MANUAL'] as const).map((m) => (
                 <button
                   key={m}
                   role="tab"
@@ -150,12 +157,32 @@ export function TenderPanel(props: TenderPanelProps) {
                   className="till-cat"
                   onClick={() => { setMode(m); setError(null); }}
                 >
-                  {m === 'MPESA' ? 'M-Pesa' : m === 'CASH' ? 'Cash' : 'Enter code'}
+                  {m === 'STK' ? 'Send prompt'
+                   : m === 'CASH' ? 'Cash'
+                   : m === 'MPESA' ? 'Already paid'
+                   : 'Enter code'}
                 </button>
               ))}
             </div>
 
             {error && <p className="tender__error" role="alert">{error}</p>}
+
+            {mode === 'STK' && (
+              <div className="tender__body">
+                <NcbaStkPanel
+                  supabase={supabase}
+                  amountDue={due}
+                  saleRef={cart.localRef}
+                  onPaid={(mpesaTxnId, amount) => push({
+                    paymentId: newPaymentId(),
+                    method: 'MPESA_STK',
+                    amount,
+                    mpesaTxnId,
+                  })}
+                  onCancel={() => setMode('CASH')}
+                />
+              </div>
+            )}
 
             {mode === 'CASH' && (
               <div className="tender__body">

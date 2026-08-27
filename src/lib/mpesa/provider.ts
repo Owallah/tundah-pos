@@ -72,8 +72,22 @@ export interface PaymentProvider {
 
   stkPush(req: StkRequest): Promise<StkResult>;
   stkQuery(checkoutRequestId: string): Promise<{ resultCode: number; resultDesc: string }>;
-  /** True when C2B callbacks carry a reference we can match on exactly. */
+  /** True when payments carry a reference we can match on exactly. */
   supportsExactMatching(): boolean;
+
+  /**
+   * NCBA has no callback: outcomes are only learned by polling. Daraja
+   * pushes a callback. The reconciliation screen and the worker both need
+   * to know which they are dealing with.
+   */
+  readonly requiresPolling?: boolean;
+
+  /**
+   * Daraja returns the Safaricom receipt number; NCBA does not. When false,
+   * confirmed payments must be reconciled against the bank statement rather
+   * than against an M-Pesa code.
+   */
+  readonly returnsReceiptNumber?: boolean;
 }
 
 // ── Model A: Daraja, configured for the NCBA collection paybill ─────────────
@@ -205,56 +219,16 @@ export class DarajaTillProvider implements PaymentProvider {
   }
 }
 
-// ── Model B: NCBA hosted gateway — SCAFFOLD ONLY ───────────────────────────
-
-export interface NcbaHostedConfig {
-  baseUrl: string;          // NCBA-Q4
-  clientId: string;         // NCBA-Q5
-  clientSecret: string;     // NCBA-Q5
-  accountNumber: string;
-  callbackUrl: string;
-  environment: 'SANDBOX' | 'PRODUCTION';
-}
-
-/**
- * NCBA hosted payment API.
- *
- * ⚠️ NOT IMPLEMENTED, DELIBERATELY. NCBA's endpoints, auth scheme and payload
- * shapes are issued under a corporate agreement and are not published. Writing
- * a plausible-looking implementation from guesswork would produce code that
- * compiles, passes review, and fails against the real gateway — the worst
- * possible outcome, because it looks finished.
- *
- * Fill this in from NCBA's integration pack. The questions to send them are
- * in NCBA-MPESA.md.
- */
-export class NcbaHostedProvider implements PaymentProvider {
-  readonly name = 'ncba-hosted';
-  readonly collectionMode = 'paybill' as const;
-
-  constructor(private readonly config: NcbaHostedConfig) {}
-
-  get displayShortCode(): string { return this.config.accountNumber; }
-  supportsExactMatching(): boolean { return true; }
-
-  private notImplemented(op: string): never {
-    throw new Error(
-      `NcbaHostedProvider.${op} is not implemented. NCBA's API specification ` +
-      `is issued under agreement and has not been supplied. See NCBA-MPESA.md ` +
-      `for the questions to send them, then implement against their pack. ` +
-      `Use MPESA_PROVIDER=ncba-paybill in the meantime.`,
-    );
-  }
-
-  async stkPush(): Promise<StkResult> { this.notImplemented('stkPush'); }
-  async stkQuery(): Promise<{ resultCode: number; resultDesc: string }> {
-    this.notImplemented('stkQuery');
-  }
-}
+// ── NCBA Till STK Push & QR — implemented in ./ncba.ts ────────────────────
+//
+// The scaffold that used to live here has been replaced by a real
+// implementation, built from NCBA's 2024 API specification.
+export { NcbaProvider, NcbaClient, NcbaError, NCBA_BASE_URL } from './ncba';
+import { NcbaProvider } from './ncba';
 
 // ── Factory ────────────────────────────────────────────────────────────────
 
-export type ProviderKind = 'daraja-till' | 'ncba-paybill' | 'ncba-hosted';
+export type ProviderKind = 'daraja-till' | 'ncba-paybill' | 'ncba';
 
 export function createPaymentProvider(
   env: Record<string, string | undefined> = process.env,
@@ -283,14 +257,13 @@ export function createPaymentProvider(
         allowAccountSuffix: env.NCBA_ALLOW_ACCOUNT_SUFFIX === 'true',
       });
 
-    case 'ncba-hosted':
-      return new NcbaHostedProvider({
-        baseUrl: env.NCBA_API_BASE_URL ?? '',
-        clientId: env.NCBA_CLIENT_ID ?? '',
-        clientSecret: env.NCBA_CLIENT_SECRET ?? '',
-        accountNumber: env.NCBA_ACCOUNT_CODE ?? '',
-        callbackUrl: env.MPESA_CALLBACK_URL ?? '',
-        environment: base.environment,
+    case 'ncba':
+      return new NcbaProvider({
+        baseUrl: env.NCBA_API_BASE_URL,
+        username: env.NCBA_USERNAME ?? '',
+        password: env.NCBA_PASSWORD ?? '',
+        payBillNo: env.NCBA_PAYBILL_NO ?? '880100',
+        tillCode: env.NCBA_TILL_CODE ?? '',
       });
 
     case 'daraja-till':

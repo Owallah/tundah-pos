@@ -259,6 +259,7 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
 
       {stage === 'TENDER' && (
         <TenderPanel
+          supabase={supabase}
           cart={cart}
           onCartChange={setCart}
           candidates={candidates}

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: 'Tundah Taamu Delights — POS',
   description: 'Point of sale for Tundah Taamu Delights',
   manifest: '/manifest.webmanifest',
-  icons: { icon: '/logo.png', apple: '/logo.png' },
+  icons: { icon: '/tundah-taamu-logo-colored.png', apple: '/tundah-taamu-logo-colored.png' },
 };
 
 export const viewport: Viewport = {
