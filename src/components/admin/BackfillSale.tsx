@@ -167,7 +167,12 @@ export function BackfillSale({
             ))}
           </div>
 
-          {cart.lines.map((l) => (
+          {cart.lines.map((l) => {
+            // Same recomputation rule as the till: the stock-unconfirmed
+            // flag is a snapshot, not a fact about the line, so every
+            // quantity change here needs the catalogue item too.
+            const catalogueItem = catalogue.find((c) => c.productId === l.productId);
+            return (
             <div className="till-line" key={l.lineId}>
               <div className="till-line__name">{l.name}</div>
               <div className="till-line__amt">
@@ -175,15 +180,18 @@ export function BackfillSale({
               </div>
               <div className="till-line__sub">
                 <span className="till-qty">
-                  <button onClick={() => setCart(setQty(cart, l.lineId, l.qty - 1))}>−</button>
+                  <button onClick={() => setCart(
+                    setQty(cart, l.lineId, l.qty - 1, catalogueItem))}>−</button>
                   <output>{l.qty}</output>
-                  <button onClick={() => setCart(setQty(cart, l.lineId, l.qty + 1))}>+</button>
+                  <button onClick={() => setCart(
+                    setQty(cart, l.lineId, l.qty + 1, catalogueItem))}>+</button>
                 </span>
                 <button className="till-cat" style={{ marginLeft: 'auto', minHeight: 40 }}
                   onClick={() => setCart(removeLine(cart, l.lineId))}>Remove</button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </section>
       </div>
     </main>

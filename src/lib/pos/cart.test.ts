@@ -78,6 +78,48 @@ describe('adding items', () => {
     expect(c.lines).toHaveLength(1);          // never blocked
   });
 
+  // Regression: reported live as "clicking twice on a 1-in-stock product
+  // shows Stock unconfirmed; minusing back to 1 never clears it; the flag
+  // then behaves inconsistently either way from the stepper." Root cause:
+  // setQty copied every field of the line forward except qty, so the flag
+  // froze at whatever addItem last computed -- the stepper never looked at
+  // stock again in either direction.
+  describe('setQty recomputes the stock-unconfirmed flag on every change', () => {
+    const scarce = { ...smoothie, qtyOnHand: 1 };
+
+    it('sets the flag when a merge pushes qty past stock (the initial trigger)', () => {
+      let c = addItem(fresh(), scarce, 'l1', 1);
+      c = addItem(c, scarce, 'l1-2', 1);   // second tap merges into one line
+      expect(c.lines[0].qty).toBe(2);
+      expect(c.lines[0].belowRecordedStock).toBe(true);
+    });
+
+    it('CLEARS the flag when the stepper brings qty back within stock', () => {
+      let c = addItem(fresh(), scarce, 'l1', 2);   // over stock
+      expect(c.lines[0].belowRecordedStock).toBe(true);
+
+      c = setQty(c, 'l1', 1, scarce);              // stepper "−", passing the item
+      expect(c.lines[0].qty).toBe(1);
+      expect(c.lines[0].belowRecordedStock).toBe(false);   // was stuck `true` before the fix
+    });
+
+    it('RE-SETS the flag when the stepper pushes qty back over stock', () => {
+      let c = addItem(fresh(), scarce, 'l1', 1);
+      c = setQty(c, 'l1', 2, scarce);              // stepper "+", passing the item
+      expect(c.lines[0].belowRecordedStock).toBe(true);    // was stuck `false` before the fix
+    });
+
+    it('without an item, preserves prior behaviour rather than fail', () => {
+      // Documents the fallback path for any caller that genuinely has no
+      // catalogue in scope: the flag carries forward unchanged rather than
+      // silently resetting to false (which would hide a real shortage).
+      let c = addItem(fresh(), scarce, 'l1', 2);
+      expect(c.lines[0].belowRecordedStock).toBe(true);
+      c = setQty(c, 'l1', 1);                      // no item passed
+      expect(c.lines[0].belowRecordedStock).toBe(true);    // unchanged, not recomputed
+    });
+  });
+
   it('renumbers lines after a removal', () => {
     let c = addItem(fresh(), smoothie, 'l1');
     c = addItem(c, mango, 'l2');

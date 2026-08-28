@@ -17,7 +17,7 @@
 import { useState } from 'react';
 import {
   setQty, removeLine, applyLineDiscount, overridePrice,
-  CartError, type Cart, type CartLine, type Authority,
+  CartError, type Cart, type CartLine, type Authority, type CatalogueItem,
 } from '../../lib/pos/cart';
 import { formatKes, parseKes, cents, type Cents } from '../../lib/money/money';
 import type { ApprovalKind, ApprovalResult } from './SupervisorApproval';
@@ -25,6 +25,13 @@ import type { ApprovalKind, ApprovalResult } from './SupervisorApproval';
 export interface LineActionsProps {
   cart: Cart;
   line: CartLine;
+  /**
+   * The catalogue entry for this line's product. Used only to recompute the
+   * "stock unconfirmed" flag when the quantity changes here -- see the
+   * comment on setQty() in cart.ts for why that recomputation has to happen
+   * on every change rather than once.
+   */
+  item?: CatalogueItem;
   cashier: Authority & { name: string };
   onCartChange: (next: Cart) => void;
   onRequestApproval: (
@@ -35,7 +42,7 @@ export interface LineActionsProps {
 }
 
 export function LineActions({
-  cart, line, cashier, onCartChange, onRequestApproval, onClose,
+  cart, line, item, cashier, onCartChange, onRequestApproval, onClose,
 }: LineActionsProps) {
   const [mode, setMode] = useState<'MENU' | 'DISCOUNT' | 'PRICE'>('MENU');
   const [value, setValue] = useState('');
@@ -107,10 +114,10 @@ export function LineActions({
             <label className="boot__label">Quantity</label>
             <div className="line__qty">
               <button className="till-btn"
-                onClick={() => onCartChange(setQty(cart, line.lineId, line.qty - 1))}>−</button>
+                onClick={() => onCartChange(setQty(cart, line.lineId, line.qty - 1, item))}>−</button>
               <output>{line.qty}</output>
               <button className="till-btn"
-                onClick={() => onCartChange(setQty(cart, line.lineId, line.qty + 1))}>+</button>
+                onClick={() => onCartChange(setQty(cart, line.lineId, line.qty + 1, item))}>+</button>
             </div>
 
             <div className="line__menu">

@@ -182,10 +182,32 @@ export function addItem(
   return { ...cart, lines: [...cart.lines, line] };
 }
 
-export function setQty(cart: Cart, lineId: string, qty: number): Cart {
+/**
+ * Change a line's quantity.
+ *
+ * BUG THIS FIXES: previously this copied every field of the line forward
+ * unchanged except `qty`, which meant `belowRecordedStock` froze at whatever
+ * `addItem` last computed it as. Concretely: two taps on a product with 1
+ * unit on hand set the flag true; using the stepper to go back down to 1
+ * never cleared it, because nothing here ever looked at stock again. The
+ * flag is a snapshot of a comparison (qty vs recorded stock), not a fact
+ * about the line, so it has to be recomputed on every quantity change --
+ * exactly as `addItem` computes it when a line is first created.
+ *
+ * `item` is optional only so a caller with no catalogue in scope does not
+ * fail outright; omitting it means the flag simply cannot be freshened
+ * (it carries forward unchanged, the old behaviour). Every caller in this
+ * codebase has catalogue access and should pass it.
+ */
+export function setQty(
+  cart: Cart, lineId: string, qty: number, item?: CatalogueItem,
+): Cart {
   if (qty <= 0) return removeLine(cart, lineId);
   const line = requireLine(cart, lineId);
-  return replaceLine(cart, lineId, { ...line, qty: round3(qty) });
+  const belowRecordedStock = item
+    ? item.trackStock && item.qtyOnHand < qty
+    : line.belowRecordedStock;
+  return replaceLine(cart, lineId, { ...line, qty: round3(qty), belowRecordedStock });
 }
 
 export function removeLine(cart: Cart, lineId: string): Cart {
@@ -421,9 +443,6 @@ export function toSalePayload(
         ? Math.max(0, t.tendered - t.amount)
         : null,
       mpesa_txn_id: t.mpesaTxnId ?? null,
-      // The code a cashier types for MPESA_MANUAL. Previously dropped here
-      // and never reached the server at all — see 0024_manual_mpesa_ledger.
-      manual_reference: t.mpesaReceipt ?? null,
     })),
     _preview_total_cents: totals.total,
   };

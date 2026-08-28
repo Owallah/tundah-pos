@@ -55,6 +55,8 @@ export interface TillContainerProps {
 type Stage = 'SELLING' | 'TENDER' | 'RECEIPT' | 'CLOSING';
 
 const C2B_POLL_MS = 3_000;
+/** Realtime is primary; this is only the safety net for a dropped socket. */
+const STOCK_FALLBACK_POLL_MS = 25_000;
 
 export function TillContainer({ supabase, session }: TillContainerProps) {
   const storage = useMemo(() => createBrowserDoubtStorage(), []);
@@ -79,18 +81,54 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
 
   // ── Catalogue: fetched once per shift, then held in memory. Scanning,
   //    search and pricing never touch the network. ARCHITECTURE §C.2.
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const { data, error: err } = await supabase.rpc('event_price_list', {
-        p_event_id: session.eventId,
-      });
-      if (cancelled) return;
-      if (err) { setError(`Could not load products: ${err.message}`); return; }
-      setCatalogue(toCatalogue(data as EventPriceRow[] | null));
-    })();
-    return () => { cancelled = true; };
+  //
+  //    Stock is the exception: it changes under this till's feet the moment
+  //    another till completes a sale, so it cannot only be loaded once.
+  //    loadCatalogue() is shared by the initial load, the Realtime handler
+  //    below, and its fallback poll -- one fetch path, three triggers.
+  const loadCatalogue = useCallback(async () => {
+    const { data, error: err } = await supabase.rpc('event_price_list', {
+      p_event_id: session.eventId,
+    });
+    if (err) { setError(`Could not load products: ${err.message}`); return; }
+    setCatalogue(toCatalogue(data as EventPriceRow[] | null));
   }, [supabase, session.eventId]);
+
+  useEffect(() => { void loadCatalogue(); }, [loadCatalogue]);
+
+  // ── Live stock across tills.
+  //
+  // Without this, TILL-02 selling the last unit of a product is invisible to
+  // TILL-01 until someone reloads the page -- exactly the report that
+  // prompted this. `stock_balances` must be in the `supabase_realtime`
+  // publication for any of this to fire at all; see migration 0028.
+  //
+  // A burst of near-simultaneous sales across three tills would otherwise
+  // trigger one catalogue refetch per row changed. Debounced to one refetch
+  // per short burst instead. A slow fallback poll covers a dropped socket,
+  // mirroring the pattern already used for the M-Pesa inbox below.
+  useEffect(() => {
+    let debounce: ReturnType<typeof setTimeout> | undefined;
+    const scheduleReload = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => void loadCatalogue(), 400);
+    };
+
+    const channel = supabase
+      .channel('stock-levels')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'stock_balances' },
+        scheduleReload)
+      .subscribe();
+
+    const fallback = setInterval(() => void loadCatalogue(), STOCK_FALLBACK_POLL_MS);
+
+    return () => {
+      if (debounce) clearTimeout(debounce);
+      clearInterval(fallback);
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, loadCatalogue]);
 
   // ── Recover anything left in doubt by a previous connection drop. This
   //    runs on every boot, so a laptop restarted mid-sale surfaces it at once.
@@ -240,6 +278,7 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
           <LineActions
             cart={cart}
             line={line}
+            item={catalogue.find((c) => c.productId === line.productId)}
             cashier={session.cashier}
             onCartChange={setCart}
             onRequestApproval={(request, apply) => setApproval({ request, apply })}

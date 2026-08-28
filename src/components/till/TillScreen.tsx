@@ -177,7 +177,13 @@ export function TillScreen(props: TillScreenProps) {
               <span>Tap a product to start the sale.</span>
             </div>
           ) : (
-            cart.lines.map((line) => (
+            cart.lines.map((line) => {
+              // Looked up per line so the stepper can recompute the stock
+              // warning flag on every tap, instead of freezing whatever
+              // addItem last set it to.
+              const catalogueItem = catalogue.find(
+                (c) => c.productId === line.productId);
+              return (
               <div className="till-line" key={line.lineId}>
                 <button
                   className="till-line__name"
@@ -195,14 +201,16 @@ export function TillScreen(props: TillScreenProps) {
                 <div className="till-line__sub">
                   <span className="till-qty">
                     <button
-                      onClick={() => onCartChange(setQty(cart, line.lineId, line.qty - 1))}
+                      onClick={() => onCartChange(
+                        setQty(cart, line.lineId, line.qty - 1, catalogueItem))}
                       aria-label={`Reduce ${line.name}`}
                     >
                       −
                     </button>
                     <output>{line.qty}</output>
                     <button
-                      onClick={() => onCartChange(setQty(cart, line.lineId, line.qty + 1))}
+                      onClick={() => onCartChange(
+                        setQty(cart, line.lineId, line.qty + 1, catalogueItem))}
                       aria-label={`Add another ${line.name}`}
                     >
                       +
@@ -226,7 +234,8 @@ export function TillScreen(props: TillScreenProps) {
                   </button>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
 
