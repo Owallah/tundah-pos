@@ -181,6 +181,7 @@ export function GoodsReceived({ supabase }: { supabase: SupabaseClient }) {
 
       {loading ? <p className="tender__hint">Loading…</p> : (
         <section className="admin__group">
+          <div className="admin__table-scroll">
           <table className="admin__table">
             <thead>
               <tr>
@@ -223,6 +224,7 @@ export function GoodsReceived({ supabase }: { supabase: SupabaseClient }) {
               ))}
             </tbody>
           </table>
+          </div>
           <p className="tender__hint">
             Leave <b>New cost</b> blank to keep the current cost. Entering one
             updates the product so the next sale computes margin against what

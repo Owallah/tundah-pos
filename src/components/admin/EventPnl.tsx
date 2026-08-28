@@ -190,6 +190,7 @@ export function EventPnl({ supabase }: { supabase: SupabaseClient }) {
             Export CSV
           </button>
         </h2>
+        <div className="admin__table-scroll">
         <table className="admin__table report__table">
           <thead>
             <tr>
@@ -221,6 +222,7 @@ export function EventPnl({ supabase }: { supabase: SupabaseClient }) {
             ))}
           </tbody>
         </table>
+        </div>
         <p className="tender__hint">
           Revenue per day normalises a two-day event against a five-day one —
           usually the more honest comparison when deciding which to book again.

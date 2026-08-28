@@ -6,7 +6,9 @@
  * Six buckets, ordered by how much they need a human:
  *
  *   Mismatch          money moved, but not the amount we expected
- *   Unverified manual a cashier typed a code Safaricom has no record of
+ *   Unverified manual a cashier typed a code by hand — now a real ledger row
+ *                     (channel MANUAL), auto-upgraded if Safaricom's own
+ *                     confirmation for that code shows up later
  *   Unmatched         money arrived that no sale claimed
  *   Pending           STK sent, no callback yet — usually self-resolving
  *   Verified          the happy path, shown as a total only
@@ -20,6 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatKes, type Cents } from '../../lib/money/money';
 import { maskPhone } from '../../lib/mpesa/matcher';
+import { toCsv, downloadCsv, reportFilename, type Column } from '../../lib/reports/csv';
 
 interface PendingRow {
   mpesa_txn_id: string; channel: string; amount_cents: number;
@@ -31,12 +34,21 @@ interface MismatchRow {
   confirmed_at: string; result_desc: string | null;
 }
 interface ManualRow {
-  payment_id: string; amount_cents: number; occurred_at: string;
+  mpesa_txn_id: string; mpesa_receipt_number: string; amount_cents: number;
   local_ref: string; cashier: string; hours_old: number;
 }
 interface UnmatchedRow {
   mpesa_txn_id: string; mpesa_receipt_number: string; amount_cents: number;
   phone_number: string | null; payer_name: string | null; confirmed_at: string;
+}
+interface LedgerRow {
+  mpesa_txn_id: string; channel: string; provider: string; status: string;
+  mpesa_receipt_number: string | null;
+  provider_txn_id: string | null; provider_reference: string | null;
+  amount_cents: number;
+  phone_number: string | null; payer_name: string | null;
+  initiated_at: string | null; confirmed_at: string | null;
+  local_ref: string | null; cashier: string | null; event_name: string | null;
 }
 
 interface Reconciliation {
@@ -63,6 +75,19 @@ export function PaymentReconciliation({ supabase }: { supabase: SupabaseClient }
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [events, setEvents] = useState<Array<{ event_id: string; name: string }>>([]);
+  const [eventId, setEventId] = useState<string>('');
+  const [ledger, setLedger] = useState<LedgerRow[] | null>(null);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+
+  useEffect(() => {
+    void (async () => {
+      const { data: d } = await supabase.rpc('list_events');
+      setEvents(((d ?? []) as Array<{ event_id: string; name: string }>)
+        .map((e) => ({ event_id: e.event_id, name: e.name })));
+    })();
+  }, [supabase]);
+
   const load = useCallback(async () => {
     const from = new Date(Date.now() - hours * 3_600_000).toISOString();
     const { data: d, error: err } = await supabase.rpc('mpesa_reconciliation', {
@@ -74,6 +99,41 @@ export function PaymentReconciliation({ supabase }: { supabase: SupabaseClient }
 
   useEffect(() => { void load(); }, [load]);
 
+  const loadLedger = useCallback(async () => {
+    setLedgerLoading(true);
+    const from = new Date(Date.now() - hours * 3_600_000).toISOString();
+    const { data: d, error: err } = await supabase.rpc('mpesa_ledger', {
+      p_event_id: eventId || null, p_from: from, p_to: new Date().toISOString(),
+    });
+    if (err) setError(err.message);
+    else setLedger(d as LedgerRow[]);
+    setLedgerLoading(false);
+  }, [supabase, hours, eventId]);
+
+  useEffect(() => { void loadLedger(); }, [loadLedger]);
+
+  const exportLedgerCsv = () => {
+    if (!ledger) return;
+    const columns: Column<LedgerRow>[] = [
+      { key: 'confirmed_at', header: 'Confirmed at', kind: 'date' },
+      { key: 'channel', header: 'Channel' },
+      { key: 'provider', header: 'Provider' },
+      { key: 'status', header: 'Status' },
+      { key: 'mpesa_receipt_number', header: 'Code / receipt' },
+      { key: 'provider_txn_id', header: 'NCBA reference' },
+      { key: 'amount_cents', header: 'Amount', kind: 'money' },
+      { key: 'phone_number', header: 'Phone' },
+      { key: 'payer_name', header: 'Payer' },
+      { key: 'local_ref', header: 'Sale ref' },
+      { key: 'cashier', header: 'Cashier' },
+      { key: 'event_name', header: 'Event' },
+    ];
+    const csv = toCsv(ledger, columns);
+    const to = new Date();
+    const from = new Date(Date.now() - hours * 3_600_000);
+    downloadCsv(reportFilename('mpesa-ledger', from, to), csv);
+  };
+
   const resolve = async (txnId: string, action: 'ACCEPT' | 'WRITE_OFF', note?: string) => {
     setBusy(txnId);
     setError(null);
@@ -82,7 +142,7 @@ export function PaymentReconciliation({ supabase }: { supabase: SupabaseClient }
         p_mpesa_txn_id: txnId, p_action: action, p_note: note ?? null,
       });
       if (err) throw new Error(err.message);
-      await load();
+      await Promise.all([load(), loadLedger()]);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -176,24 +236,36 @@ export function PaymentReconciliation({ supabase }: { supabase: SupabaseClient }
       <Bucket
         title="Unverified manual codes"
         count={b.unverified_manual.length}
-        blurb="A cashier typed these codes but Safaricom has no matching payment.
-               Usually a typo. Anything over 24 hours old should be treated as
-               a cash shortfall and investigated with the named cashier."
+        blurb="A cashier typed these codes by hand. If Safaricom's own
+               confirmation for the same code arrives later, this resolves
+               itself automatically. Otherwise, check the code against the
+               actual NCBA/Safaricom statement, then Accept or Write off."
       >
         {b.unverified_manual.map((r) => (
-          <div className="recon__row" key={r.payment_id}
+          <div className="recon__row" key={r.mpesa_txn_id}
                data-urgent={r.hours_old > 24 ? 'true' : undefined}>
             <div>
               <strong>{formatKes(r.amount_cents as Cents)}</strong>
               <small>
-                {r.local_ref} · {r.cashier} ·{' '}
-                {new Date(r.occurred_at).toLocaleString('en-KE', { hour12: false })}
+                <code>{r.mpesa_receipt_number}</code> · {r.local_ref} ·{' '}
+                {r.cashier}
               </small>
               {r.hours_old > 24 && (
                 <small style={{ color: 'var(--state-stop)' }}>
                   {Math.floor(r.hours_old)} hours unverified — investigate
                 </small>
               )}
+            </div>
+            <div className="recon__actions">
+              <button className="till-cat" disabled={busy === r.mpesa_txn_id}
+                onClick={() => void resolve(r.mpesa_txn_id, 'ACCEPT')}>
+                Accept
+              </button>
+              <button className="till-cat" disabled={busy === r.mpesa_txn_id}
+                onClick={() => void resolve(r.mpesa_txn_id, 'WRITE_OFF',
+                  'manual code not found on statement')}>
+                Write off
+              </button>
             </div>
           </div>
         ))}
@@ -248,6 +320,82 @@ export function PaymentReconciliation({ supabase }: { supabase: SupabaseClient }
           </div>
         ))}
       </Bucket>
+
+      {/* ── All transactions: the full ledger, not just problem rows ─────── */}
+      <section className="admin__group">
+        <h2 style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          All M-Pesa transactions
+          <select className="admin__input" style={{ width: 220, textAlign: 'left' }}
+                  value={eventId} onChange={(e) => setEventId(e.target.value)}
+                  aria-label="Filter by event">
+            <option value="">All events</option>
+            {events.map((ev) => (
+              <option key={ev.event_id} value={ev.event_id}>{ev.name}</option>
+            ))}
+          </select>
+          <button className="till-cat no-print" style={{ minHeight: 36, padding: '0 12px' }}
+                  onClick={exportLedgerCsv} disabled={!ledger || ledger.length === 0}>
+            Export CSV
+          </button>
+        </h2>
+        <p className="tender__hint">
+          Every transaction in the selected window, any status — this is the
+          full record to check against the actual NCBA or Safaricom
+          statement, not just the ones needing a decision above.
+          {eventId && ' Rows with no linked sale cannot be attributed to an '
+            + 'event, so they are left out while a specific event is selected.'}
+        </p>
+        {ledgerLoading ? (
+          <p className="tender__hint">Loading…</p>
+        ) : !ledger || ledger.length === 0 ? (
+          <p className="tender__hint">Nothing in this window.</p>
+        ) : (
+          <div className="admin__table-scroll">
+            <table className="admin__table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Channel</th>
+                  <th>Status</th>
+                  <th>Code / receipt</th>
+                  <th style={{ textAlign: 'right' }}>Amount</th>
+                  <th>Payer / phone</th>
+                  <th>Sale</th>
+                  <th>Cashier</th>
+                  <th>Event</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ledger.map((r) => (
+                  <tr key={r.mpesa_txn_id}>
+                    <td>
+                      {new Date(r.confirmed_at ?? r.initiated_at ?? '')
+                        .toLocaleString('en-KE', { hour12: false })}
+                    </td>
+                    <td>{r.channel}{r.provider !== 'DARAJA' ? ` · ${r.provider}` : ''}</td>
+                    <td>{r.status}</td>
+                    <td>{r.mpesa_receipt_number
+                      ? <code>{r.mpesa_receipt_number}</code>
+                      : r.provider_txn_id
+                        ? (
+                          <span title="NCBA never issues a Safaricom-style receipt code; this is NCBA's own transaction reference instead.">
+                            <code>{r.provider_txn_id}</code>
+                            <small style={{ display: 'block' }}>NCBA ref</small>
+                          </span>
+                        )
+                        : '—'}</td>
+                    <td className="n">{formatKes(r.amount_cents as Cents, false)}</td>
+                    <td>{r.payer_name ?? maskPhone(r.phone_number)}</td>
+                    <td>{r.local_ref ?? '—'}</td>
+                    <td>{r.cashier ?? '—'}</td>
+                    <td>{r.event_name ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </main>
   );
 }

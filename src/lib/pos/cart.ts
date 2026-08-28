@@ -421,6 +421,9 @@ export function toSalePayload(
         ? Math.max(0, t.tendered - t.amount)
         : null,
       mpesa_txn_id: t.mpesaTxnId ?? null,
+      // The code a cashier types for MPESA_MANUAL. Previously dropped here
+      // and never reached the server at all — see 0024_manual_mpesa_ledger.
+      manual_reference: t.mpesaReceipt ?? null,
     })),
     _preview_total_cents: totals.total,
   };

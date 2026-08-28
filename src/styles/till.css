@@ -491,6 +491,17 @@ button.till-line__name:focus-visible { outline: 3px solid var(--till-ink); outli
   color: var(--till-ink-dim); margin: 0 0 8px;
 }
 .admin__table { width: 100%; border-collapse: collapse; }
+
+/* A table with more columns than a narrow screen can hold needs somewhere
+   to go now that the modal itself never scrolls sideways (see till-block
+   above). This gives it its own small, visibly-bounded scroll strip instead
+   — the cashier can see there's more to the right without the whole dialog
+   sliding around underneath it. */
+.admin__table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
 .admin__table th {
   text-align: left; font-size: 12px; text-transform: uppercase;
   letter-spacing: .06em; color: var(--till-ink-faint); font-weight: 600;
@@ -954,6 +965,7 @@ button.till-line__name:focus-visible { outline: 3px solid var(--till-ink); outli
   align-content: safe center;
 
   overflow-y: auto;
+  overflow-x: hidden;             /* the modal scrolls up/down only, never sideways */
   overscroll-behavior: contain;   /* don't scroll the till behind the modal */
   -webkit-overflow-scrolling: touch;
   padding: 16px;
@@ -965,6 +977,7 @@ button.till-line__name:focus-visible { outline: 3px solid var(--till-ink); outli
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overflow-x: hidden;             /* same rule as the overlay: no sideways scroll */
   overscroll-behavior: contain;
   padding: 0;                     /* padding moves onto the sticky regions */
 }
