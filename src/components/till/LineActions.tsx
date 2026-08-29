@@ -114,10 +114,10 @@ export function LineActions({
             <label className="boot__label">Quantity</label>
             <div className="line__qty">
               <button className="till-btn"
-                onClick={() => onCartChange(setQty(cart, line.lineId, line.qty - 1, item))}>−</button>
+                onClick={() => onCartChange(setQty(cart, line.lineId, line.qty - 1))}>−</button>
               <output>{line.qty}</output>
               <button className="till-btn"
-                onClick={() => onCartChange(setQty(cart, line.lineId, line.qty + 1, item))}>+</button>
+                onClick={() => onCartChange(setQty(cart, line.lineId, line.qty + 1))}>+</button>
             </div>
 
             <div className="line__menu">
