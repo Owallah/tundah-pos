@@ -28,7 +28,7 @@ function buildPrintDocument(doc: ReceiptDocument): string {
   const kitchen = renderKitchenTicket(doc);
 
   return `<!doctype html><html><head><meta charset="utf-8"><style>
-    @page { size: 80mm auto; margin: 0; }
+    @page { size: 80mm auto; margin: 2mm 1mm; }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
     body {
@@ -62,28 +62,42 @@ export function printReceipt(doc: ReceiptDocument): Promise<void> {
     iframe.style.height = '0';
     iframe.style.border = '0';
     iframe.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(iframe);
 
-    let settled = false;
+    // Deliberately NOT srcdoc + onload. An iframe fires an initial `load`
+    // for its blank starting document BEFORE srcdoc content finishes
+    // loading — sometimes that fires late enough for real content to have
+    // already replaced it, sometimes not. That race is exactly what
+    // printed nothing but the browser's own header/footer: print() ran
+    // against the still-blank document, not the receipt. document.write()
+    // has no such race — by the time close() returns, the content is
+    // parsed into the frame, synchronously, on this same call stack.
+    const frameDoc = iframe.contentDocument ?? iframe.contentWindow?.document;
+    if (!frameDoc) { iframe.remove(); resolve(); return; }
+
+    frameDoc.open();
+    frameDoc.write(buildPrintDocument(doc));
+    frameDoc.close();
+
+    const win = iframe.contentWindow;
     const finish = () => {
-      if (settled) return;
-      settled = true;
       // Removing the iframe immediately after print() can cancel the job
       // in some browsers — give the print pipeline a moment to pick it up.
       setTimeout(() => { iframe.remove(); resolve(); }, 1000);
     };
 
-    iframe.onload = () => {
-      const win = iframe.contentWindow;
-      if (!win) { finish(); return; }
+    if (!win) { finish(); return; }
+
+    // One frame's grace before printing: document.write() has parsed the
+    // content synchronously, but letting layout/paint settle for a frame
+    // avoids Chrome occasionally snapshotting the page before it's ready.
+    requestAnimationFrame(() => {
       try {
         win.focus();
         win.print();
       } finally {
         finish();
       }
-    };
-
-    document.body.appendChild(iframe);
-    iframe.srcdoc = buildPrintDocument(doc);
+    });
   });
 }
