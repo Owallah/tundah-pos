@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  renderText, isFiscal, HtmlReceiptProvider, TextReceiptProvider,
+  renderText, renderKitchenTicket, isFiscal, HtmlReceiptProvider, TextReceiptProvider,
   EscPosReceiptProvider, type ReceiptDocument,
 } from './document';
 import { cents, bp } from '../money/money';
@@ -9,9 +9,9 @@ const base: ReceiptDocument = {
   business: {
     legalName: 'Nyota Fresh Ltd',
     tradingName: 'Nyota Juice Bar',
-    kraPin: 'P051234567M',
-    address: 'Ngong Road, Nairobi',
-    phone: '0712 345 678',
+    kraPin: 'P051651276G',
+    address: 'Umoja Innercore, Nairobi',
+    phone: '0786 411 198',
     vatRegistered: true,
   },
   localRef: 'TILL-01-000247',
@@ -136,6 +136,38 @@ describe('layout', () => {
   it('shows change on cash overpayment', () => {
     const out = renderText({ ...base, changeGiven: cents(3_500) });
     expect(out).toMatch(/Change\s+35\.00/);
+  });
+});
+
+describe('kitchen ticket', () => {
+  it('fits 80mm thermal width, same as the customer copy', () => {
+    for (const line of renderKitchenTicket(base).split('\n')) {
+      expect(line.length).toBeLessThanOrEqual(32);
+    }
+  });
+
+  it('lists items and quantities only — never a price', () => {
+    const out = renderKitchenTicket(base);
+    expect(out).toMatch(/2 x Mango Smoothie \(Large\)/);
+    expect(out).toMatch(/3 x Whole Mango/);
+    expect(out).not.toMatch(/25\.00|50\.00|KES/);
+  });
+
+  it('never shows tax, payment method, or a total — a kitchen ticket is not a receipt', () => {
+    const out = renderKitchenTicket(base);
+    expect(out).not.toMatch(/VAT|TOTAL|MPESA|CASH/);
+  });
+
+  it('carries the order reference so it can be matched back to the sale', () => {
+    expect(renderKitchenTicket(base)).toMatch(/Order\s+TILL-01-000247/);
+  });
+
+  it('shows who it is for, when the sale recorded a customer name', () => {
+    const named: ReceiptDocument = {
+      ...base,
+      customer: { name: 'Wanjiru' },
+    };
+    expect(renderKitchenTicket(named)).toMatch(/For\s+Wanjiru/);
   });
 });
 

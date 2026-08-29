@@ -57,7 +57,7 @@ export function buildReceipt(cart: Cart, ctx: BuildReceiptContext): ReceiptDocum
     payments: cart.tenders.map((t) => ({
       method: t.method,
       amount: t.amount,
-      reference: t.mpesaReceipt ?? null,
+      reference: t.mpesaReceipt ?? t.cardReference ?? null,
       // Manual codes are unverified until Daraja confirms them. This flag
       // drives the asterisk on the receipt and the split on the Z report.
       verified: t.method !== 'MPESA_MANUAL',

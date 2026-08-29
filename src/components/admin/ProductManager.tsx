@@ -118,6 +118,11 @@ export function ProductManager({ supabase }: { supabase: SupabaseClient }) {
       {editing && (
         <ProductForm supabase={supabase}
                      product={editing === 'new' ? null : editing}
+                     existingCategories={
+                       Array.from(new Set(
+                         rows.map((r) => r.category).filter((c): c is string => !!c),
+                       )).sort()
+                     }
                      onDone={() => { setEditing(null); void load(); }}
                      onCancel={() => setEditing(null)} />
       )}
@@ -126,15 +131,22 @@ export function ProductManager({ supabase }: { supabase: SupabaseClient }) {
 }
 
 function ProductForm({
-  supabase, product, onDone, onCancel,
+  supabase, product, existingCategories, onDone, onCancel,
 }: {
   supabase: SupabaseClient; product: ProductRow | null;
+  existingCategories: string[];
   onDone: () => void; onCancel: () => void;
 }) {
   const [sku, setSku] = useState(product?.sku ?? '');
   const [name, setName] = useState(product?.name ?? '');
   const [shortName, setShortName] = useState(product?.short_name ?? '');
   const [category, setCategory] = useState(product?.category ?? '');
+  // Free-text entry is only shown once "+ New category…" is picked, or when
+  // editing a product whose category isn't in the known list for some
+  // reason (renamed/deleted elsewhere) — never hide an existing value.
+  const [addingCategory, setAddingCategory] = useState(
+    !!category && !existingCategories.includes(category),
+  );
   const [uom, setUom] = useState(product?.uom ?? 'EA');
   const [cost, setCost] = useState(
     product ? formatKes(product.cost_price_cents as Cents, false) : '');
@@ -204,9 +216,32 @@ function ProductForm({
           </div>
           <div>
             <label className="boot__label" htmlFor="p-cat">Category</label>
-            <input id="p-cat" className="tender__input" style={textish}
-                   value={category} onChange={(e) => setCategory(e.target.value)}
-                   placeholder="Smoothies" />
+            {addingCategory ? (
+              <input id="p-cat" className="tender__input" style={textish}
+                     value={category} onChange={(e) => setCategory(e.target.value)}
+                     placeholder="Smoothies" autoFocus
+                     onBlur={() => {
+                       // Empty new-category entry silently reverts to the
+                       // dropdown rather than leaving the form stuck open
+                       // on a blank required-looking field.
+                       if (!category.trim() && existingCategories.length > 0) {
+                         setAddingCategory(false);
+                       }
+                     }} />
+            ) : (
+              <select id="p-cat" className="tender__input" style={textish}
+                      value={category}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') { setAddingCategory(true); setCategory(''); }
+                        else setCategory(e.target.value);
+                      }}>
+                <option value="">No category</option>
+                {existingCategories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                <option value="__new__">+ New category…</option>
+              </select>
+            )}
           </div>
         </div>
 
@@ -217,6 +252,7 @@ function ProductForm({
                     value={uom} onChange={(e) => setUom(e.target.value)}>
               <option value="EA">Each</option>
               <option value="KG">Kilogram</option>
+              <option value="LTR">Litre</option>
             </select>
           </div>
           <div>

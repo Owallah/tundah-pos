@@ -225,6 +225,34 @@ export function renderText(doc: ReceiptDocument): string {
   return L.join('\n');
 }
 
+// ── Kitchen ticket ──────────────────────────────────────────────────────────
+// Deliberately NOT a cut-down copy of the customer receipt. No prices, no
+// tax, no payment method — a kitchen glances at this for seconds between
+// orders, and every extra number on it is something to misread under
+// pressure. Bigger, sparser, and printed in a larger font at the print
+// layer (see print.ts) so it reads from arm's length.
+
+export function renderKitchenTicket(doc: ReceiptDocument): string {
+  const L: string[] = [];
+
+  L.push(centre('KITCHEN COPY'));
+  L.push(rule('='));
+  L.push(row('Order', doc.localRef));
+  L.push(row('Time', doc.issuedAt.toLocaleTimeString('en-KE', { hour12: false })));
+  if (doc.customer?.name) L.push(row('For', doc.customer.name));
+  L.push(rule());
+
+  for (const line of doc.lines) {
+    const qty = Number.isInteger(line.qty) ? String(line.qty) : line.qty.toFixed(3);
+    L.push(`${qty} x ${line.name}`.slice(0, COLS));
+  }
+
+  L.push(rule('='));
+  L.push('');
+
+  return L.join('\n');
+}
+
 // ── Providers ───────────────────────────────────────────────────────────────
 
 export class TextReceiptProvider implements ReceiptProvider {

@@ -98,7 +98,10 @@ export function StockAdjust({
     );
   }
 
-  const ready = productId && Number(qty) > 0 && reason.trim().length > 2;
+  const n = Number(qty);
+  const validQty = Number.isFinite(n) && n !== 0
+    && (type === 'ADJUSTMENT' || n > 0);
+  const ready = productId && validQty && reason.trim().length > 2;
 
   return (
     <main className="admin">
@@ -149,7 +152,7 @@ export function StockAdjust({
           <input id="qty" className="tender__input" inputMode="decimal"
                  value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" />
 
-          {costImpact !== null && Number(qty) > 0 && (
+          {costImpact !== null && Number(qty) !== 0 && (
             <p className="tender__hint">
               Revenue impact: <strong style={{ color: 'var(--state-warn)' }}>
                 {formatKes(costImpact)}

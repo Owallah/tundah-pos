@@ -34,7 +34,8 @@ interface MismatchRow {
   confirmed_at: string; result_desc: string | null;
 }
 interface ManualRow {
-  mpesa_txn_id: string; mpesa_receipt_number: string; amount_cents: number;
+  mpesa_txn_id: string; mpesa_receipt_number: string; manual_bank: string | null;
+  amount_cents: number;
   local_ref: string; cashier: string; hours_old: number;
 }
 interface UnmatchedRow {
@@ -247,6 +248,15 @@ export function PaymentReconciliation({ supabase }: { supabase: SupabaseClient }
             <div>
               <strong>{formatKes(r.amount_cents as Cents)}</strong>
               <small>
+                {r.manual_bank && (
+                  <span style={{
+                    display: 'inline-block', marginRight: 6, padding: '1px 6px',
+                    borderRadius: 4, fontSize: '0.85em', fontWeight: 600,
+                    background: 'var(--till-surface-hi)', color: 'var(--till-ink-dim)',
+                  }}>
+                    {r.manual_bank === 'NCBA' ? 'NCBA' : 'Co-op'}
+                  </span>
+                )}
                 <code>{r.mpesa_receipt_number}</code> · {r.local_ref} ·{' '}
                 {r.cashier}
               </small>

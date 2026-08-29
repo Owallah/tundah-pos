@@ -102,6 +102,8 @@ export function TillBoot({
         eventId,
         eventName,
         deviceCode: claims.deviceCode ?? 'TILL',
+        businessId: claims.businessId,
+        deviceId: claims.deviceId!,
         cashier: {
           cashierId: who.cashier_id,
           name: who.full_name,

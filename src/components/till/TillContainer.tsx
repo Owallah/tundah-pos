@@ -18,6 +18,7 @@ import { TenderPanel } from './TenderPanel';
 import { ReceiptView } from './ReceiptView';
 import { LineActions } from './LineActions';
 import { ShiftClose } from './ShiftClose';
+import { ParkedSales } from './ParkedSales';
 import {
   SupervisorApproval, type ApprovalKind, type ApprovalResult,
 } from './SupervisorApproval';
@@ -30,6 +31,7 @@ import {
   type SubmitOutcome, type DoubtRecord,
 } from '../../lib/pos/submit';
 import { toSalePayload } from '../../lib/pos/cart';
+import { parkSale, listParked } from '../../lib/pos/parked';
 import { buildReceipt } from '../../lib/receipt/build';
 import type { ReceiptDocument, ReceiptBusiness } from '../../lib/receipt/document';
 import type { CandidatePayment } from '../../lib/mpesa/matcher';
@@ -41,6 +43,8 @@ export interface TillSession {
   eventId: string;
   eventName: string;
   deviceCode: string;
+  businessId: string;
+  deviceId: string;
   cashier: Authority & { name: string };
   business: ReceiptBusiness;
   /** Monotonic per-device counter, persisted server-side at shift open. */
@@ -55,8 +59,6 @@ export interface TillContainerProps {
 type Stage = 'SELLING' | 'TENDER' | 'RECEIPT' | 'CLOSING';
 
 const C2B_POLL_MS = 3_000;
-/** Realtime is primary; this is only the safety net for a dropped socket. */
-const STOCK_FALLBACK_POLL_MS = 25_000;
 
 export function TillContainer({ supabase, session }: TillContainerProps) {
   const storage = useMemo(() => createBrowserDoubtStorage(), []);
@@ -73,6 +75,8 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [showParked, setShowParked] = useState(false);
+  const [parkedCount, setParkedCount] = useState(0);
   // An approval request carries its own apply() callback, so the container
   // never needs to know what is being approved -- only that someone did.
   const [approval, setApproval] = useState<
@@ -81,54 +85,18 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
 
   // ── Catalogue: fetched once per shift, then held in memory. Scanning,
   //    search and pricing never touch the network. ARCHITECTURE §C.2.
-  //
-  //    Stock is the exception: it changes under this till's feet the moment
-  //    another till completes a sale, so it cannot only be loaded once.
-  //    loadCatalogue() is shared by the initial load, the Realtime handler
-  //    below, and its fallback poll -- one fetch path, three triggers.
-  const loadCatalogue = useCallback(async () => {
-    const { data, error: err } = await supabase.rpc('event_price_list', {
-      p_event_id: session.eventId,
-    });
-    if (err) { setError(`Could not load products: ${err.message}`); return; }
-    setCatalogue(toCatalogue(data as EventPriceRow[] | null));
-  }, [supabase, session.eventId]);
-
-  useEffect(() => { void loadCatalogue(); }, [loadCatalogue]);
-
-  // ── Live stock across tills.
-  //
-  // Without this, TILL-02 selling the last unit of a product is invisible to
-  // TILL-01 until someone reloads the page -- exactly the report that
-  // prompted this. `stock_balances` must be in the `supabase_realtime`
-  // publication for any of this to fire at all; see migration 0028.
-  //
-  // A burst of near-simultaneous sales across three tills would otherwise
-  // trigger one catalogue refetch per row changed. Debounced to one refetch
-  // per short burst instead. A slow fallback poll covers a dropped socket,
-  // mirroring the pattern already used for the M-Pesa inbox below.
   useEffect(() => {
-    let debounce: ReturnType<typeof setTimeout> | undefined;
-    const scheduleReload = () => {
-      if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => void loadCatalogue(), 400);
-    };
-
-    const channel = supabase
-      .channel('stock-levels')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'stock_balances' },
-        scheduleReload)
-      .subscribe();
-
-    const fallback = setInterval(() => void loadCatalogue(), STOCK_FALLBACK_POLL_MS);
-
-    return () => {
-      if (debounce) clearTimeout(debounce);
-      clearInterval(fallback);
-      void supabase.removeChannel(channel);
-    };
-  }, [supabase, loadCatalogue]);
+    let cancelled = false;
+    void (async () => {
+      const { data, error: err } = await supabase.rpc('event_price_list', {
+        p_event_id: session.eventId,
+      });
+      if (cancelled) return;
+      if (err) { setError(`Could not load products: ${err.message}`); return; }
+      setCatalogue(toCatalogue(data as EventPriceRow[] | null));
+    })();
+    return () => { cancelled = true; };
+  }, [supabase, session.eventId]);
 
   // ── Recover anything left in doubt by a previous connection drop. This
   //    runs on every boot, so a laptop restarted mid-sale surfaces it at once.
@@ -168,6 +136,23 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
       void supabase.removeChannel(channel);
     };
   }, [stage, supabase]);
+
+  // ── Parked-sale count, kept fresh so the button shows how many are
+  //    waiting without the cashier needing to open the list to find out.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const rows = await listParked(supabase, session.shiftId);
+        if (!cancelled) setParkedCount(rows.length);
+      } catch {
+        // Non-critical — the button just won't show a count this refresh.
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 10_000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [supabase, session.shiftId, showParked]);
 
   // ── Submission ────────────────────────────────────────────────────────────
 
@@ -250,6 +235,22 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
     setStage('SELLING');
   }, [sequence, session]);
 
+  const handlePark = useCallback(async () => {
+    try {
+      await parkSale(supabase, cart, {
+        businessId: session.businessId,
+        deviceId: session.deviceId,
+        shiftId: session.shiftId,
+        cashierId: session.cashier.cashierId,
+      });
+      startNextSale();
+    } catch (e) {
+      // Never clear the cart on a failed park — that is exactly the bug
+      // this replaced: the cashier believing it parked while it was lost.
+      setError((e as Error).message);
+    }
+  }, [supabase, cart, session, startNextSale]);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -266,10 +267,24 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
         onEditLine={setEditingLineId}
         onCloseShift={() => setStage('CLOSING')}
         onOpenTender={() => { setTenderOpenedAt(new Date()); setStage('TENDER'); }}
-        onPark={() => void parkSale(supabase, cart, session).then(startNextSale)}
+        onPark={() => void handlePark()}
+        onShowParked={() => setShowParked(true)}
+        parkedCount={parkedCount}
         onResolveDoubt={(r) => void handleResolveDoubt(r)}
         newLineId={() => crypto.randomUUID()}
       />
+
+      {showParked && (
+        <ParkedSales
+          supabase={supabase}
+          shiftId={session.shiftId}
+          onRecall={(recalledCart) => {
+            setCart(recalledCart);
+            setShowParked(false);
+          }}
+          onClose={() => setShowParked(false)}
+        />
+      )}
 
       {editingLineId && (() => {
         const line = cart.lines.find((l) => l.lineId === editingLineId);
@@ -278,7 +293,6 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
           <LineActions
             cart={cart}
             line={line}
-            item={catalogue.find((c) => c.productId === line.productId)}
             cashier={session.cashier}
             onCartChange={setCart}
             onRequestApproval={(request, apply) => setApproval({ request, apply })}
@@ -338,17 +352,6 @@ function newCart(session: TillSession, sequence: number): Cart {
     `${session.deviceCode}-${String(sequence).padStart(6, '0')}`,
     new Date(),
   );
-}
-
-async function parkSale(supabase: SupabaseClient, cart: Cart, session: TillSession) {
-  if (cart.lines.length === 0) return;
-  await supabase.from('parked_sales').insert({
-    device_id: undefined,           // stamped from the JWT by RLS check
-    shift_id: session.shiftId,
-    cashier_id: session.cashier.cashierId,
-    label: cart.localRef,
-    cart: cart as unknown as Record<string, unknown>,
-  });
 }
 
 interface RawMpesaRow {

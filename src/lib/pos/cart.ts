@@ -62,7 +62,7 @@ export interface CartLine {
   belowRecordedStock: boolean;
 }
 
-export type TenderMethod = 'CASH' | 'MPESA_C2B' | 'MPESA_STK' | 'MPESA_MANUAL';
+export type TenderMethod = 'CASH' | 'MPESA_C2B' | 'MPESA_STK' | 'MPESA_MANUAL' | 'CARD';
 
 export interface Tender {
   paymentId: string;
@@ -73,6 +73,10 @@ export interface Tender {
   /** M-Pesa: the matched transaction. */
   mpesaTxnId?: string;
   mpesaReceipt?: string;
+  /** M-Pesa manual only: which paybill this code is claimed to belong to. */
+  manualBank?: 'NCBA' | 'COOP';
+  /** Card/PDQ only: the terminal's own reference number on the slip. */
+  cardReference?: string;
 }
 
 export interface Cart {
@@ -182,32 +186,10 @@ export function addItem(
   return { ...cart, lines: [...cart.lines, line] };
 }
 
-/**
- * Change a line's quantity.
- *
- * BUG THIS FIXES: previously this copied every field of the line forward
- * unchanged except `qty`, which meant `belowRecordedStock` froze at whatever
- * `addItem` last computed it as. Concretely: two taps on a product with 1
- * unit on hand set the flag true; using the stepper to go back down to 1
- * never cleared it, because nothing here ever looked at stock again. The
- * flag is a snapshot of a comparison (qty vs recorded stock), not a fact
- * about the line, so it has to be recomputed on every quantity change --
- * exactly as `addItem` computes it when a line is first created.
- *
- * `item` is optional only so a caller with no catalogue in scope does not
- * fail outright; omitting it means the flag simply cannot be freshened
- * (it carries forward unchanged, the old behaviour). Every caller in this
- * codebase has catalogue access and should pass it.
- */
-export function setQty(
-  cart: Cart, lineId: string, qty: number, item?: CatalogueItem,
-): Cart {
+export function setQty(cart: Cart, lineId: string, qty: number): Cart {
   if (qty <= 0) return removeLine(cart, lineId);
   const line = requireLine(cart, lineId);
-  const belowRecordedStock = item
-    ? item.trackStock && item.qtyOnHand < qty
-    : line.belowRecordedStock;
-  return replaceLine(cart, lineId, { ...line, qty: round3(qty), belowRecordedStock });
+  return replaceLine(cart, lineId, { ...line, qty: round3(qty) });
 }
 
 export function removeLine(cart: Cart, lineId: string): Cart {
@@ -443,6 +425,16 @@ export function toSalePayload(
         ? Math.max(0, t.tendered - t.amount)
         : null,
       mpesa_txn_id: t.mpesaTxnId ?? null,
+      // The code a cashier types for MPESA_MANUAL. Previously dropped here
+      // and never reached the server at all — see 0024_manual_mpesa_ledger.
+      manual_reference: t.mpesaReceipt ?? null,
+      // Which paybill a manual code is claimed to belong to (NCBA or Co-op)
+      // — see 0030_card_and_bank_tagged_manual.
+      manual_bank: t.manualBank ?? null,
+      // A card/PDQ terminal's own slip reference — a different rail
+      // entirely from M-Pesa, so it lives on `payments` directly, not in
+      // the mpesa_transactions ledger.
+      card_reference: t.cardReference ?? null,
     })),
     _preview_total_cents: totals.total,
   };

@@ -52,9 +52,11 @@ export function TenderPanel(props: TenderPanelProps) {
   // NCBA STK is the default: the cashier drives it and the AccountNo carries
   // the sale reference, so there is nothing to match afterwards. The old C2B
   // "wait and match" flow is kept as MPESA for a customer who pays unprompted.
-  const [mode, setMode] = useState<'STK' | 'CASH' | 'MPESA' | 'MANUAL'>('STK');
+  const [mode, setMode] = useState<'STK' | 'CASH' | 'MPESA' | 'MANUAL' | 'CARD'>('STK');
   const [cashInput, setCashInput] = useState('');
   const [manualCode, setManualCode] = useState('');
+  const [manualBank, setManualBank] = useState<'NCBA' | 'COOP'>('NCBA');
+  const [cardRef, setCardRef] = useState('');
   const [phoneHint, setPhoneHint] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -149,7 +151,7 @@ export function TenderPanel(props: TenderPanelProps) {
         {due > 0 && (
           <>
             <div className="tender__modes" role="tablist">
-              {(['STK', 'CASH', 'MPESA', 'MANUAL'] as const).map((m) => (
+              {(['STK', 'CASH', 'MPESA', 'MANUAL', 'CARD'] as const).map((m) => (
                 <button
                   key={m}
                   role="tab"
@@ -160,6 +162,7 @@ export function TenderPanel(props: TenderPanelProps) {
                   {m === 'STK' ? 'Send prompt'
                    : m === 'CASH' ? 'Cash'
                    : m === 'MPESA' ? 'Already paid'
+                   : m === 'CARD' ? 'Card'
                    : 'Enter code'}
                 </button>
               ))}
@@ -281,8 +284,17 @@ export function TenderPanel(props: TenderPanelProps) {
               <div className="tender__body">
                 <p className="tender__hint">
                   Only when the payment has not appeared. This is recorded as
-                  unverified and checked against Safaricom later.
+                  unverified and checked against the statement later.
                 </p>
+                <div className="tender__row" style={{ marginBottom: 8 }}>
+                  <select className="tender__input"
+                          value={manualBank}
+                          onChange={(e) => setManualBank(e.target.value as 'NCBA' | 'COOP')}
+                          aria-label="Which paybill this code is for">
+                    <option value="NCBA">NCBA Till</option>
+                    <option value="COOP">Co-op Paybill</option>
+                  </select>
+                </div>
                 <div className="tender__row">
                   <input
                     className="tender__input"
@@ -300,6 +312,7 @@ export function TenderPanel(props: TenderPanelProps) {
                       method: 'MPESA_MANUAL',
                       amount: due,
                       mpesaReceipt: manualCode,
+                      manualBank,
                     })}
                   >
                     Add {formatKes(due, false)}
@@ -308,6 +321,35 @@ export function TenderPanel(props: TenderPanelProps) {
                 {manualCode.length > 0 && !/^[A-Z0-9]{10}$/.test(manualCode) && (
                   <p className="tender__hint">M-Pesa codes are 10 letters and numbers.</p>
                 )}
+              </div>
+            )}
+
+            {mode === 'CARD' && (
+              <div className="tender__body">
+                <p className="tender__hint">
+                  Co-op Bank PDQ terminal. Enter the reference printed on the slip.
+                </p>
+                <div className="tender__row">
+                  <input
+                    className="tender__input"
+                    placeholder="PDQ slip reference"
+                    value={cardRef}
+                    onChange={(e) => setCardRef(e.target.value.toUpperCase())}
+                    aria-label="Card terminal slip reference"
+                  />
+                  <button
+                    className="till-btn"
+                    disabled={!cardRef.trim()}
+                    onClick={() => push({
+                      paymentId: newPaymentId(),
+                      method: 'CARD',
+                      amount: due,
+                      cardReference: cardRef.trim(),
+                    })}
+                  >
+                    Add {formatKes(due, false)}
+                  </button>
+                </div>
               </div>
             )}
           </>

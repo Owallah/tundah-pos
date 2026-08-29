@@ -37,8 +37,10 @@ export function BackfillSale({
     emptyCart(crypto.randomUUID(), 'PAPER', new Date()));
   const [slipRef, setSlipRef] = useState('');
   const [occurredAt, setOccurredAt] = useState(localNow());
-  const [tender, setTender] = useState<'CASH' | 'MPESA_MANUAL'>('CASH');
+  const [tender, setTender] = useState<'CASH' | 'MPESA_MANUAL' | 'CARD'>('CASH');
   const [mpesaCode, setMpesaCode] = useState('');
+  const [manualBank, setManualBank] = useState<'NCBA' | 'COOP'>('NCBA');
+  const [cardRef, setCardRef] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string[]>([]);
@@ -49,7 +51,9 @@ export function BackfillSale({
   const ready = cart.lines.length > 0
     && slipRef.trim().length > 0
     && occurredAt
-    && (tender === 'CASH' || /^[A-Z0-9]{10}$/.test(mpesaCode));
+    && (tender === 'CASH'
+        || (tender === 'MPESA_MANUAL' && /^[A-Z0-9]{10}$/.test(mpesaCode))
+        || (tender === 'CARD' && cardRef.trim().length > 0));
 
   const submit = async () => {
     setBusy(true);
@@ -67,6 +71,8 @@ export function BackfillSale({
             method: tender,
             amount: totals.total,
             mpesaReceipt: tender === 'MPESA_MANUAL' ? mpesaCode : undefined,
+            manualBank: tender === 'MPESA_MANUAL' ? manualBank : undefined,
+            cardReference: tender === 'CARD' ? cardRef.trim() : undefined,
           }],
         },
         {
@@ -88,6 +94,7 @@ export function BackfillSale({
       setCart(emptyCart(crypto.randomUUID(), 'PAPER', new Date()));
       setSlipRef('');
       setMpesaCode('');
+      setCardRef('');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -133,11 +140,26 @@ export function BackfillSale({
               onClick={() => setTender('CASH')}>Cash</button>
             <button className="till-cat" aria-pressed={tender === 'MPESA_MANUAL'}
               onClick={() => setTender('MPESA_MANUAL')}>M-Pesa code</button>
+            <button className="till-cat" aria-pressed={tender === 'CARD'}
+              onClick={() => setTender('CARD')}>Card / PDQ</button>
           </div>
           {tender === 'MPESA_MANUAL' && (
-            <input className="tender__input" value={mpesaCode} maxLength={10}
-              onChange={(e) => setMpesaCode(e.target.value.toUpperCase())}
-              placeholder="SLK7XU9P2Q" aria-label="M-Pesa code" />
+            <>
+              <select className="tender__input" value={manualBank}
+                onChange={(e) => setManualBank(e.target.value as 'NCBA' | 'COOP')}
+                aria-label="Which paybill this code is for">
+                <option value="NCBA">NCBA Till</option>
+                <option value="COOP">Co-op Paybill</option>
+              </select>
+              <input className="tender__input" value={mpesaCode} maxLength={10}
+                onChange={(e) => setMpesaCode(e.target.value.toUpperCase())}
+                placeholder="SLK7XU9P2Q" aria-label="M-Pesa code" />
+            </>
+          )}
+          {tender === 'CARD' && (
+            <input className="tender__input" value={cardRef}
+              onChange={(e) => setCardRef(e.target.value.toUpperCase())}
+              placeholder="PDQ slip reference" aria-label="Card terminal slip reference" />
           )}
 
           <div className="backfill__total">
@@ -167,12 +189,7 @@ export function BackfillSale({
             ))}
           </div>
 
-          {cart.lines.map((l) => {
-            // Same recomputation rule as the till: the stock-unconfirmed
-            // flag is a snapshot, not a fact about the line, so every
-            // quantity change here needs the catalogue item too.
-            const catalogueItem = catalogue.find((c) => c.productId === l.productId);
-            return (
+          {cart.lines.map((l) => (
             <div className="till-line" key={l.lineId}>
               <div className="till-line__name">{l.name}</div>
               <div className="till-line__amt">
@@ -180,18 +197,15 @@ export function BackfillSale({
               </div>
               <div className="till-line__sub">
                 <span className="till-qty">
-                  <button onClick={() => setCart(
-                    setQty(cart, l.lineId, l.qty - 1, catalogueItem))}>−</button>
+                  <button onClick={() => setCart(setQty(cart, l.lineId, l.qty - 1))}>−</button>
                   <output>{l.qty}</output>
-                  <button onClick={() => setCart(
-                    setQty(cart, l.lineId, l.qty + 1, catalogueItem))}>+</button>
+                  <button onClick={() => setCart(setQty(cart, l.lineId, l.qty + 1))}>+</button>
                 </span>
                 <button className="till-cat" style={{ marginLeft: 'auto', minHeight: 40 }}
                   onClick={() => setCart(removeLine(cart, l.lineId))}>Remove</button>
               </div>
             </div>
-            );
-          })}
+          ))}
         </section>
       </div>
     </main>

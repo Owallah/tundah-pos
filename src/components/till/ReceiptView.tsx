@@ -19,8 +19,19 @@ export function ReceiptView({
   doc, onDone,
 }: { doc: ReceiptDocument; onDone: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const text = useMemo(() => renderText(doc), [doc]);
   const fiscal = isFiscal(doc);
+
+  const print = async () => {
+    setPrinting(true);
+    try {
+      const { printReceipt } = await import('../../lib/receipt/print');
+      await printReceipt(doc);
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   const download = async () => {
     setBusy(true);
@@ -64,6 +75,9 @@ export function ReceiptView({
         <pre className="receipt__paper">{text}</pre>
 
         <div className="receipt__actions">
+          <button className="till-btn till-btn--pay" onClick={() => void print()} disabled={printing}>
+            {printing ? 'Sending to printer…' : 'Print (2 copies)'}
+          </button>
           <button className="till-btn" onClick={() => void download()} disabled={busy}>
             {busy ? 'Preparing…' : 'Download PDF'}
           </button>

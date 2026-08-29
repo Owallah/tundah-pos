@@ -29,6 +29,7 @@ const OPERATIONS = [
   { href: '/admin/pnl', label: 'P&L' },
   { href: '/admin/stock', label: 'Stock' },
   { href: '/admin/sales', label: 'Sales' },
+  { href: '/admin/shifts', label: 'Shifts' },
   { href: '/admin/reconciliation', label: 'Payments' },
   { href: '/admin/backfill', label: 'Paper slips' },
 ];

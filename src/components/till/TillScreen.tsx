@@ -39,6 +39,8 @@ export interface TillScreenProps {
   onOpenTender: () => void;
   onCloseShift: () => void;
   onPark: () => void;
+  onShowParked: () => void;
+  parkedCount: number;
   onResolveDoubt: (record: DoubtRecord) => void;
   newLineId: () => string;
 }
@@ -58,7 +60,7 @@ export function TillScreen(props: TillScreenProps) {
   const {
     catalogue, cart, onCartChange, network, cashier, deviceCode,
     eventName, doubtful, onEditLine, onOpenTender, onCloseShift, onPark,
-    onResolveDoubt, newLineId,
+    onShowParked, parkedCount, onResolveDoubt, newLineId,
   } = props;
 
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -177,13 +179,7 @@ export function TillScreen(props: TillScreenProps) {
               <span>Tap a product to start the sale.</span>
             </div>
           ) : (
-            cart.lines.map((line) => {
-              // Looked up per line so the stepper can recompute the stock
-              // warning flag on every tap, instead of freezing whatever
-              // addItem last set it to.
-              const catalogueItem = catalogue.find(
-                (c) => c.productId === line.productId);
-              return (
+            cart.lines.map((line) => (
               <div className="till-line" key={line.lineId}>
                 <button
                   className="till-line__name"
@@ -201,16 +197,14 @@ export function TillScreen(props: TillScreenProps) {
                 <div className="till-line__sub">
                   <span className="till-qty">
                     <button
-                      onClick={() => onCartChange(
-                        setQty(cart, line.lineId, line.qty - 1, catalogueItem))}
+                      onClick={() => onCartChange(setQty(cart, line.lineId, line.qty - 1))}
                       aria-label={`Reduce ${line.name}`}
                     >
                       −
                     </button>
                     <output>{line.qty}</output>
                     <button
-                      onClick={() => onCartChange(
-                        setQty(cart, line.lineId, line.qty + 1, catalogueItem))}
+                      onClick={() => onCartChange(setQty(cart, line.lineId, line.qty + 1))}
                       aria-label={`Add another ${line.name}`}
                     >
                       +
@@ -234,8 +228,7 @@ export function TillScreen(props: TillScreenProps) {
                   </button>
                 </div>
               </div>
-              );
-            })
+            ))
           )}
         </div>
 
@@ -264,9 +257,18 @@ export function TillScreen(props: TillScreenProps) {
           </div>
         </div>
 
-        <div className="till-actions">
+        <div className="till-actions" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
           <button className="till-btn" onClick={onPark} disabled={cart.lines.length === 0}>
             Park sale
+          </button>
+          <button
+            className="till-btn"
+            onClick={onShowParked}
+            disabled={cart.lines.length > 0}
+            title={cart.lines.length > 0
+              ? 'Finish or park the current sale first' : undefined}
+          >
+            Parked{parkedCount > 0 ? ` (${parkedCount})` : ''}
           </button>
           <button
             className="till-btn"
