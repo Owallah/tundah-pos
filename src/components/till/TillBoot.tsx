@@ -36,6 +36,7 @@ export function TillBoot({
   const [roster, setRoster] = useState<RosterEntry[]>([]);
   const [cashierId, setCashierId] = useState<string | null>(null);
   const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [float, setFloat] = useState('0');
   const [session, setSession] = useState<TillSession | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,12 +165,21 @@ export function TillBoot({
         </div>
 
         <label className="boot__label" htmlFor="pin">PIN</label>
-        <input
-          id="pin" className="tender__input" type="password"
-          inputMode="numeric" maxLength={6} value={pin} autoComplete="off"
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-          placeholder="••••••"
-        />
+        <div className="boot__password-field">
+          <input
+            id="pin" className="tender__input" type={showPin ? 'text' : 'password'}
+            inputMode="numeric" maxLength={6} value={pin} autoComplete="off"
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+            placeholder="••••••"
+          />
+          <button
+            type="button" className="boot__password-toggle"
+            onClick={() => setShowPin((v) => !v)}
+            aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+          >
+            {showPin ? 'Hide' : 'Show'}
+          </button>
+        </div>
 
         {!openShiftId && (
           <>

@@ -113,9 +113,9 @@ export function LoginForm() {
         </button>
 
         <p className="tender__hint" style={{ marginTop: 18 }}>
-          Till accounts go to the sale screen; owners and supervisors go to
-          the admin screens. A till signs in once and stays signed in —
-          cashiers switch by PIN, not here.
+          Till accounts go to the sale screen; owners go to
+          the admin screens. A till signs in once and stays signed 
+          in. Cashiers switch by PIN, not here.
         </p>
       </div>
     </main>
