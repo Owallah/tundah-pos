@@ -384,6 +384,18 @@
 }
 .boot__roster { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
+.boot__password-field { position: relative; display: flex; }
+.boot__password-field .tender__input { padding-right: 64px; }
+.boot__password-toggle {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  border: none; background: none; color: var(--till-ink-dim);
+  font-family: var(--font-ui); font-size: var(--step-sm); font-weight: 650;
+  text-transform: uppercase; letter-spacing: .04em;
+  padding: 6px 8px; cursor: pointer; border-radius: var(--radius-sm, 6px);
+}
+.boot__password-toggle:hover { color: var(--till-ink); }
+.boot__password-toggle:focus-visible { outline: 3px solid var(--till-ink); outline-offset: 2px; }
+
 /* --- Supervisor approval ------------------------------------------------- */
 
 .approval { max-width: 480px; border-color: var(--state-warn) !important; }

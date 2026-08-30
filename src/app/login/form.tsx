@@ -21,6 +21,7 @@ export function LoginForm() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -78,17 +79,27 @@ export function LoginForm() {
           autoComplete="username" autoCapitalize="none" spellCheck={false}
           style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--step-base)' }}
           value={email} onChange={(e) => setEmail(e.target.value.trim())}
-          placeholder="till01@nyota.local"
+          placeholder="Enter Email"
         />
 
         <label className="boot__label" htmlFor="password">Password</label>
-        <input
-          id="password" className="tender__input" type="password"
-          autoComplete="current-password"
-          style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--step-base)' }}
-          value={password} onChange={(e) => setPassword(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && email && password) void submit(); }}
-        />
+        <div className="boot__password-field">
+          <input
+            id="password" className="tender__input" type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            style={{ fontFamily: 'var(--font-ui)', fontSize: 'var(--step-base)' }}
+            value={password} onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && email && password) void submit(); }}
+            placeholder="Enter Password"
+          />
+          <button
+            type="button" className="boot__password-toggle"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? 'Hide' : 'Show'}
+          </button>
+        </div>
 
         {error && <p className="tender__error" role="alert">{error}</p>}
 
