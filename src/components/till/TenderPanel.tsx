@@ -14,13 +14,14 @@
  * unworkable for a KES 250 smoothie with eight people waiting.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   addTender, removeTender, computeTotals, isPayable,
   CartError, type Cart, type Tender, type TenderMethod,
 } from '../../lib/pos/cart';
 import { matchC2BPayment, maskPhone, type CandidatePayment } from '../../lib/mpesa/matcher';
 import { NcbaStkPanel } from './NcbaStkPanel';
+import type { ApprovalKind, ApprovalResult } from './SupervisorApproval';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatKes, parseKes, cents, type Cents } from '../../lib/money/money';
 
@@ -36,6 +37,11 @@ export interface TenderPanelProps {
   onCancel: () => void;
   newPaymentId: () => string;
   submitting?: boolean;
+  /** A reused manual code needs a supervisor's PIN before it can proceed. */
+  onRequestApproval: (
+    request: ApprovalKind,
+    apply: (result: ApprovalResult) => void,
+  ) => void;
 }
 
 /** Kenyan notes in circulation. Coins below 50 are handled by exact entry. */
@@ -47,6 +53,7 @@ export function TenderPanel(props: TenderPanelProps) {
   const {
     supabase, cart, onCartChange, candidates, tenderOpenedAt,
     onComplete, onCancel, newPaymentId, submitting = false,
+    onRequestApproval,
   } = props;
 
   // NCBA STK is the default: the cashier drives it and the AccountNo carries
@@ -56,6 +63,10 @@ export function TenderPanel(props: TenderPanelProps) {
   const [cashInput, setCashInput] = useState('');
   const [manualCode, setManualCode] = useState('');
   const [manualBank, setManualBank] = useState<'NCBA' | 'COOP'>('NCBA');
+  const [codeCheck, setCodeCheck] = useState<
+    { status: 'idle' } | { status: 'checking' } | { status: 'available' }
+    | { status: 'reused'; amountCents: number; usedAt: string | null }
+  >({ status: 'idle' });
   const [cardRef, setCardRef] = useState('');
   const [phoneHint, setPhoneHint] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -79,10 +90,44 @@ export function TenderPanel(props: TenderPanelProps) {
       setError(null);
       setCashInput('');
       setManualCode('');
+      setCodeCheck({ status: 'idle' });
     } catch (err) {
       setError(err instanceof CartError ? err.message : String(err));
     }
   };
+
+  // The reused-code fraud shape: a customer shows a real M-Pesa message —
+  // genuine, but from an earlier, unrelated payment. Checking the moment a
+  // full code is typed catches it before the sale even completes, rather
+  // than leaving it for reconciliation to notice weeks later. This is a
+  // convenience check only — complete_sale() enforces the real rule
+  // server-side regardless of what this says.
+  useEffect(() => {
+    if (!/^[A-Z0-9]{10}$/.test(manualCode)) {
+      setCodeCheck({ status: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setCodeCheck({ status: 'checking' });
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const { data, error: err } = await supabase.rpc('check_manual_code', {
+            p_code: manualCode,
+          });
+          if (cancelled) return;
+          if (err || !data) { setCodeCheck({ status: 'available' }); return; }
+          const res = data as { status: string; amount_cents?: number; used_at?: string };
+          setCodeCheck(res.status === 'ALREADY_USED'
+            ? { status: 'reused', amountCents: res.amount_cents ?? 0, usedAt: res.used_at ?? null }
+            : { status: 'available' });
+        } catch {
+          if (!cancelled) setCodeCheck({ status: 'available' });
+        }
+      })();
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [manualCode, supabase]);
 
   const takeCash = (tendered: Cents) => {
     // Cash may exceed the balance — the difference is change from the drawer.
@@ -306,20 +351,51 @@ export function TenderPanel(props: TenderPanelProps) {
                   />
                   <button
                     className="till-btn"
-                    disabled={!/^[A-Z0-9]{10}$/.test(manualCode)}
-                    onClick={() => push({
-                      paymentId: newPaymentId(),
-                      method: 'MPESA_MANUAL',
-                      amount: due,
-                      mpesaReceipt: manualCode,
-                      manualBank,
-                    })}
+                    disabled={!/^[A-Z0-9]{10}$/.test(manualCode)
+                      || codeCheck.status === 'checking'}
+                    onClick={() => {
+                      if (codeCheck.status === 'reused') {
+                        onRequestApproval(
+                          { kind: 'REUSED_MPESA_CODE', code: manualCode, amount: due },
+                          (result) => push({
+                            paymentId: newPaymentId(),
+                            method: 'MPESA_MANUAL',
+                            amount: due,
+                            mpesaReceipt: manualCode,
+                            manualBank,
+                            approvedByCashierId: result.approver.cashierId,
+                            overrideReason: result.reason,
+                          }),
+                        );
+                        return;
+                      }
+                      push({
+                        paymentId: newPaymentId(),
+                        method: 'MPESA_MANUAL',
+                        amount: due,
+                        mpesaReceipt: manualCode,
+                        manualBank,
+                      });
+                    }}
                   >
-                    Add {formatKes(due, false)}
+                    {codeCheck.status === 'reused'
+                      ? 'Needs supervisor approval'
+                      : `Add ${formatKes(due, false)}`}
                   </button>
                 </div>
                 {manualCode.length > 0 && !/^[A-Z0-9]{10}$/.test(manualCode) && (
                   <p className="tender__hint">M-Pesa codes are 10 letters and numbers.</p>
+                )}
+                {codeCheck.status === 'reused' && (
+                  <p className="tender__error" role="alert">
+                    This code was already used for a payment of{' '}
+                    {formatKes(codeCheck.amountCents as Cents, false)}
+                    {codeCheck.usedAt
+                      ? ` on ${new Date(codeCheck.usedAt).toLocaleString('en-KE', { hour12: false })}`
+                      : ''}.
+                    Do not accept it again without checking with the customer
+                    directly — a supervisor must approve before this can proceed.
+                  </p>
                 )}
               </div>
             )}

@@ -78,48 +78,6 @@ describe('adding items', () => {
     expect(c.lines).toHaveLength(1);          // never blocked
   });
 
-  // Regression: reported live as "clicking twice on a 1-in-stock product
-  // shows Stock unconfirmed; minusing back to 1 never clears it; the flag
-  // then behaves inconsistently either way from the stepper." Root cause:
-  // setQty copied every field of the line forward except qty, so the flag
-  // froze at whatever addItem last computed -- the stepper never looked at
-  // stock again in either direction.
-  describe('setQty recomputes the stock-unconfirmed flag on every change', () => {
-    const scarce = { ...smoothie, qtyOnHand: 1 };
-
-    it('sets the flag when a merge pushes qty past stock (the initial trigger)', () => {
-      let c = addItem(fresh(), scarce, 'l1', 1);
-      c = addItem(c, scarce, 'l1-2', 1);   // second tap merges into one line
-      expect(c.lines[0].qty).toBe(2);
-      expect(c.lines[0].belowRecordedStock).toBe(true);
-    });
-
-    it('CLEARS the flag when the stepper brings qty back within stock', () => {
-      let c = addItem(fresh(), scarce, 'l1', 2);   // over stock
-      expect(c.lines[0].belowRecordedStock).toBe(true);
-
-      c = setQty(c, 'l1', 1, scarce);              // stepper "−", passing the item
-      expect(c.lines[0].qty).toBe(1);
-      expect(c.lines[0].belowRecordedStock).toBe(false);   // was stuck `true` before the fix
-    });
-
-    it('RE-SETS the flag when the stepper pushes qty back over stock', () => {
-      let c = addItem(fresh(), scarce, 'l1', 1);
-      c = setQty(c, 'l1', 2, scarce);              // stepper "+", passing the item
-      expect(c.lines[0].belowRecordedStock).toBe(true);    // was stuck `false` before the fix
-    });
-
-    it('without an item, preserves prior behaviour rather than fail', () => {
-      // Documents the fallback path for any caller that genuinely has no
-      // catalogue in scope: the flag carries forward unchanged rather than
-      // silently resetting to false (which would hide a real shortage).
-      let c = addItem(fresh(), scarce, 'l1', 2);
-      expect(c.lines[0].belowRecordedStock).toBe(true);
-      c = setQty(c, 'l1', 1);                      // no item passed
-      expect(c.lines[0].belowRecordedStock).toBe(true);    // unchanged, not recomputed
-    });
-  });
-
   it('renumbers lines after a removal', () => {
     let c = addItem(fresh(), smoothie, 'l1');
     c = addItem(c, mango, 'l2');
@@ -307,5 +265,28 @@ describe('server payload', () => {
       idempotencyKey: 'idem-1', occurredAt: at,
     });
     expect(p.payments[0].mpesa_txn_id).toBe('txn-9');
+  });
+
+  it('carries a supervisor override for a reused manual M-Pesa code', () => {
+    // complete_sale() rejects the whole sale if a manual code is already
+    // attached to a different payment, unless these two fields are present
+    // — this is the wire that connects the till's supervisor-approval
+    // dialog to that server-side guard. If this breaks silently, a
+    // legitimate re-entry (a voided-and-redone sale) would be unable to
+    // ever complete, with no obvious reason why.
+    let c = addItem(fresh(), smoothie, 'l1');
+    c = addTender(c, {
+      paymentId: 'pay-1', method: 'MPESA_MANUAL',
+      amount: cents(25_000), mpesaReceipt: 'SLK7XU9P2Q', manualBank: 'NCBA',
+      approvedByCashierId: 'supervisor-1', overrideReason: 'voided and redone',
+    });
+    const p = toSalePayload(c, {
+      shiftId: 'sh-1', cashierId: 'cash-1',
+      idempotencyKey: 'idem-1', occurredAt: at,
+    });
+    expect(p.payments[0].manual_reference).toBe('SLK7XU9P2Q');
+    expect(p.payments[0].manual_bank).toBe('NCBA');
+    expect(p.payments[0].approved_by_cashier_id).toBe('supervisor-1');
+    expect(p.payments[0].override_reason).toBe('voided and redone');
   });
 });

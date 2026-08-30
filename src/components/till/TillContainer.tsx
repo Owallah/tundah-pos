@@ -321,6 +321,7 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
           onComplete={() => void handleComplete()}
           onCancel={() => setStage('SELLING')}
           newPaymentId={() => crypto.randomUUID()}
+          onRequestApproval={(request, apply) => setApproval({ request, apply })}
         />
       )}
 

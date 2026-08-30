@@ -77,6 +77,13 @@ export interface Tender {
   manualBank?: 'NCBA' | 'COOP';
   /** Card/PDQ only: the terminal's own reference number on the slip. */
   cardReference?: string;
+  /**
+   * Set only when a supervisor knowingly approved re-accepting a manual
+   * M-Pesa code that was already attached to a different sale. Absence of
+   * this on a reused code is what complete_sale() rejects the sale for.
+   */
+  approvedByCashierId?: string;
+  overrideReason?: string;
 }
 
 export interface Cart {
@@ -435,6 +442,10 @@ export function toSalePayload(
       // entirely from M-Pesa, so it lives on `payments` directly, not in
       // the mpesa_transactions ledger.
       card_reference: t.cardReference ?? null,
+      // Present only when a supervisor approved re-accepting a code
+      // already attached to a different sale — see 0033_reused_code_guard.
+      approved_by_cashier_id: t.approvedByCashierId ?? null,
+      override_reason: t.overrideReason ?? null,
     })),
     _preview_total_cents: totals.total,
   };

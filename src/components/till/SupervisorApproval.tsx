@@ -27,7 +27,8 @@ export type ApprovalKind =
   | { kind: 'DISCOUNT'; lineName: string; amount: Cents; percent: number }
   | { kind: 'PRICE_OVERRIDE'; lineName: string; listPrice: Cents; newPrice: Cents }
   | { kind: 'VOID'; localRef: string; total: Cents }
-  | { kind: 'SALE_DISCOUNT'; amount: Cents; percent: number };
+  | { kind: 'SALE_DISCOUNT'; amount: Cents; percent: number }
+  | { kind: 'REUSED_MPESA_CODE'; code: string; amount: Cents };
 
 export interface ApprovalResult {
   approver: Authority & { name: string };
@@ -63,7 +64,8 @@ export function SupervisorApproval({
   const [busy, setBusy] = useState(false);
 
   const needsReason = requireReason
-    ?? (request.kind === 'PRICE_OVERRIDE' || request.kind === 'VOID');
+    ?? (request.kind === 'PRICE_OVERRIDE' || request.kind === 'VOID'
+        || request.kind === 'REUSED_MPESA_CODE');
 
   // Only staff who can actually grant THIS request are offered. Showing a
   // cashier who will be rejected server-side wastes the queue's time.
@@ -227,6 +229,10 @@ function canGrant(r: RosterEntry, request: ApprovalKind): boolean {
       return r.can_override_price;
     case 'VOID':
       return r.can_void;
+    case 'REUSED_MPESA_CODE':
+      // Same authority as a price override — this is a judgement call about
+      // accepting real financial risk, not a discount-limit question.
+      return r.can_override_price;
   }
 }
 
@@ -269,6 +275,19 @@ function describe(request: ApprovalKind) {
           <span className="approval__note">
             Stock is returned to the ledger. Only possible before the tax
             invoice is issued.
+          </span>
+        </>
+      );
+    case 'REUSED_MPESA_CODE':
+      return (
+        <>
+          <span className="approval__label">Code {request.code} was already used</span>
+          <span className="approval__figure">{formatKes(request.amount)}</span>
+          <span className="approval__note">
+            This confirmation was already attached to a different sale. Only
+            approve if you have separately confirmed this customer's payment
+            — by phone, or a fresh message shown live — not from this code
+            alone.
           </span>
         </>
       );
