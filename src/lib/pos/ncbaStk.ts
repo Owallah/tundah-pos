@@ -10,7 +10,7 @@
  * A cashier is standing in front of a customer waiting for a prompt to clear.
  * Three things must be true:
  *
- *   1. Feedback must be fast — poll every 4s, not every 30s.
+ *   1. Feedback must be fast — poll every 2.5s, not every 30s.
  *   2. It must STOP. An STK prompt expires; polling forever burns requests
  *      and leaves the cashier staring at a spinner.
  *   3. Giving up must not lose money. If the customer paid a moment after the
@@ -22,7 +22,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Cents } from '../money/money';
 
 /** Poll cadence. Fast enough to feel live, slow enough not to hammer NCBA. */
-export const POLL_INTERVAL_MS = 4_000;
+export const POLL_INTERVAL_MS = 2_500;
+
+// The very fist check happens much sooner than the normal cadence,
+// a customer with their phone unlocked can pay in 1-2 seconds
+// and waiting a full 2.5 seconds for the first poll is a poor experience.
+export const FIRST_POLL_DELAY_MS = 1_200;
 
 /** An STK prompt expires; past this it is a reconciliation task, not a wait. */
 export const POLL_TIMEOUT_MS = 120_000;
@@ -123,7 +128,7 @@ export function pollStk(
   // TEMPORARY — remove once confirmed. If this line never appears in the
   // browser console when a payment starts, the deployed bundle is stale
   // and none of the polling fixes below are actually running yet.
-  console.log('[ncba-stk] pollStk v3 (visibility-resync) active');
+  // console.log('[ncba-stk] pollStk v3 (visibility-resync) active');
 
   let cancelled = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -215,7 +220,7 @@ export function pollStk(
     }
 
     // First poll after one interval: NCBA has nothing to report instantly.
-    timer = setTimeout(() => void tick(), POLL_INTERVAL_MS);
+    timer = setTimeout(() => void tick(), FIRST_POLL_DELAY_MS);
   });
 
   return {
