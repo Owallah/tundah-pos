@@ -37,7 +37,10 @@ const TAX_TYPES = [
 export function ProductManager({ supabase }: { supabase: SupabaseClient }) {
   const [rows, setRows] = useState<ProductRow[]>([]);
   const [editing, setEditing] = useState<ProductRow | 'new' | null>(null);
+  const [deleting, setDeleting] = useState<ProductRow | null>(null);
+  const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -56,6 +59,17 @@ export function ProductManager({ supabase }: { supabase: SupabaseClient }) {
     [rows],
   );
 
+  // Client-side: a catalogue small enough to load in one call is small
+  // enough to filter in memory, with no extra round trip per keystroke.
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ordered;
+    return ordered.filter((r) =>
+      r.name.toLowerCase().includes(q)
+      || r.sku.toLowerCase().includes(q)
+      || (r.category ?? '').toLowerCase().includes(q));
+  }, [ordered, search]);
+
   return (
     <main className="admin">
       <header className="admin__head">
@@ -67,10 +81,35 @@ export function ProductManager({ supabase }: { supabase: SupabaseClient }) {
               : `${unclassified.length} product${unclassified.length === 1 ? '' : 's'} cannot be sold until classified.`}
           </p>
         </div>
-        <button className="till-btn till-btn--pay" style={{ minWidth: 180 }}
-                onClick={() => setEditing('new')}>
-          New product
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative' }}>
+            <input
+              className="tender__input"
+              style={{ ...textish, minHeight: 52, width: 240, paddingRight: search ? 40 : 16 }}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, SKU, category…"
+              aria-label="Search products"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                aria-label="Clear search"
+                style={{
+                  position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', color: 'var(--till-ink-dim)',
+                  fontSize: 18, lineHeight: 1, cursor: 'pointer', padding: 6,
+                }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <button className="till-btn till-btn--pay" style={{ minWidth: 180 }}
+                  onClick={() => setEditing('new')}>
+            New product
+          </button>
+        </div>
       </header>
 
       {unclassified.length > 0 && (
@@ -85,11 +124,16 @@ export function ProductManager({ supabase }: { supabase: SupabaseClient }) {
         </section>
       )}
 
+      {note && <p className="admin__ok" role="status">{note}</p>}
       {error && <p className="tender__error" role="alert">{error}</p>}
 
-      {loading ? <p className="tender__hint">Loading…</p> : (
+      {loading ? <p className="tender__hint">Loading…</p> : visible.length === 0 ? (
+        <p className="tender__hint">
+          {search ? `No products match “${search}”.` : 'No products yet.'}
+        </p>
+      ) : (
         <div className="recon">
-          {ordered.map((row) => (
+          {visible.map((row) => (
             <div className="recon__row" key={row.product_id}
                  data-urgent={!row.sellable && row.is_active ? 'true' : undefined}
                  style={!row.is_active ? { opacity: 0.5 } : undefined}>
@@ -109,10 +153,26 @@ export function ProductManager({ supabase }: { supabase: SupabaseClient }) {
               </div>
               <div className="recon__actions">
                 <button className="till-cat" onClick={() => setEditing(row)}>Edit</button>
+                <button className="till-cat" onClick={() => { setDeleting(row); setError(null); }}>
+                  Delete
+                </button>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {deleting && (
+        <DeleteProductDialog
+          supabase={supabase}
+          product={deleting}
+          onDone={(message) => {
+            setDeleting(null);
+            setNote(message);
+            void load();
+          }}
+          onCancel={() => setDeleting(null)}
+        />
       )}
 
       {editing && (
@@ -313,6 +373,91 @@ function ProductForm({
                   onClick={() => void submit()}>
             {busy ? 'Saving…' : 'Save'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * DeleteProductDialog — a hard delete, guarded server-side.
+ *
+ * delete_product() refuses (with a clear reason) if the product has ever
+ * actually been sold or moved, since deleting that would corrupt real
+ * financial history. This dialog surfaces that refusal directly rather than
+ * as a raw error, and points at the existing "Active" checkbox on the edit
+ * form as the correct action for a product with history.
+ */
+function DeleteProductDialog({
+  supabase, product, onDone, onCancel,
+}: {
+  supabase: SupabaseClient; product: ProductRow;
+  onDone: (message: string) => void; onCancel: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState(false);
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    const { error: err } = await supabase.rpc('delete_product', {
+      p_product_id: product.product_id,
+    });
+    if (err) {
+      // A refusal because of real history is expected and not a failure —
+      // say so plainly, and point at deactivation instead of just showing
+      // the raw database message.
+      if (err.message.includes('product_has_history')) {
+        setBlocked(true);
+      } else {
+        setError(err.message);
+      }
+      setBusy(false);
+      return;
+    }
+    onDone(`Deleted ${product.name}.`);
+  };
+
+  return (
+    <div className="till-block" role="alertdialog" aria-modal="true">
+      <div className="till-block__card approval">
+        <h2 className="till-block__title">
+          {blocked ? 'Cannot delete' : 'Delete product'}
+        </h2>
+
+        <div className="approval__what">
+          <span className="approval__label">{product.sku}</span>
+          <span className="approval__figure">{product.name}</span>
+          {!blocked && (
+            <span className="approval__note">
+              This removes it permanently. Only allowed for a product with no
+              sales or stock history — this cannot be undone.
+            </span>
+          )}
+        </div>
+
+        {blocked && (
+          <p className="tender__hint">
+            {product.name} has real sales or stock history, so deleting it
+            would corrupt that record. Set it to <b>inactive</b> instead — on
+            the Edit screen — which hides it from the till and keeps the
+            history intact.
+          </p>
+        )}
+
+        {error && <p className="tender__error" role="alert">{error}</p>}
+
+        <div className="till-actions" style={{ padding: '16px 0 0' }}>
+          <button className="till-btn" onClick={onCancel} disabled={busy}>
+            {blocked ? 'Close' : 'Cancel'}
+          </button>
+          {!blocked && (
+            <button className="till-btn till-btn--pay" style={{ gridColumn: 'auto' }}
+                    disabled={busy} onClick={() => void submit()}>
+              {busy ? 'Deleting…' : 'Delete permanently'}
+            </button>
+          )}
         </div>
       </div>
     </div>
