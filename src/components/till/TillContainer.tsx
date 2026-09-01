@@ -186,7 +186,13 @@ export function TillContainer({ supabase, session }: TillContainerProps) {
     switch (outcome.kind) {
       case 'COMPLETED':
       case 'ALREADY_COMPLETED': {
-        setReceipt(buildReceipt(cart, {
+        // local_ref is minted atomically on the server (see
+        // 0035_atomic_local_ref.sql) and is never guaranteed to match the
+        // client's own guess on `cart.localRef` -- that guess exists only
+        // so the till has something to display while the cart is being
+        // built, before any server round trip. The receipt must show the
+        // number that was actually committed.
+        setReceipt(buildReceipt({ ...cart, localRef: outcome.localRef }, {
           business: session.business,
           cashierName: session.cashier.name,
           deviceCode: session.deviceCode,
